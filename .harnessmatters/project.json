@@ -1,0 +1,24 @@
+{
+  "schema": "harnessmatters.project/v1",
+  "product": "HarnessMatters",
+  "project_key": "sandeep-chanda-piggymetricsJava",
+  "workspace_id": "c9362b75-1954-4b51-aab0-eb724ac2c669",
+  "workspace": {
+    "id": "c9362b75-1954-4b51-aab0-eb724ac2c669",
+    "name": "PiggyMetrics",
+    "label": "PiggyMetrics"
+  },
+  "associations": [],
+  "connector_id": "b40a1b9b-54a0-4136-ba55-508d6baee45b",
+  "repo": {
+    "host": "github.com",
+    "full_name": "sandeep-chanda/piggymetricsJava",
+    "default_branch": "main"
+  },
+  "elevated_at": "2026-09-23T14:19:39.561580+00:00",
+  "signature_class": "hm",
+  "context_ref": {
+    "pack_id": "",
+    "content_hash": "d6e863b7d0aaf82d"
+  }
+}
