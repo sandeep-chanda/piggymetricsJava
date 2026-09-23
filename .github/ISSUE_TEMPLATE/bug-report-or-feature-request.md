@@ -1,6 +1,9 @@
 ---
 name: Bug report or feature request
 about: Suggest an idea or report a bug
+title: ''
+labels: ''
+assignees: ''
 
 ---
 
