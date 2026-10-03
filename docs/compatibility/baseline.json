@@ -1,0 +1,55 @@
+{
+  "schema": "piggymetrics.compatibility.baseline/v1",
+  "spec": "Fresh data",
+  "plan": "P1",
+  "status": "proposed",
+  "source_repo": "sandeep-chanda/piggymetricsJava",
+  "source_commit": "f760b95a538cfc199b1ce8d7893e55cd7a7c22ac",
+  "source_committed_at": "2026-09-26T20:08:58Z",
+  "gateway_base_url": "http://localhost:80",
+  "prose_contract": "docs/compatibility/API-CONTRACT.md",
+  "routes": [
+  {"prefix": "/uaa/**", "service": "auth-service", "context_path": "/uaa", "port": 5000, "strip_prefix": false, "style": "url", "target": "http://auth-service:5000"},
+  {"prefix": "/accounts/**", "service": "account-service", "context_path": "/accounts", "port": 6000, "strip_prefix": false, "style": "serviceId", "target": "account-service"},
+  {"prefix": "/statistics/**", "service": "statistics-service", "context_path": "/statistics", "port": 7000, "strip_prefix": false, "style": "serviceId", "target": "statistics-service"},
+  {"prefix": "/notifications/**", "service": "notification-service", "context_path": "/notifications", "port": 8000, "strip_prefix": false, "style": "serviceId", "target": "notification-service"}
+  ],
+  "endpoints": [
+  {"id": "AUTH-01", "method": "POST", "path": "/uaa/oauth/token", "auth": "basic-client", "scope": null, "success_status": 200, "success_body": "TokenResponse", "validation_status": 400, "unauthenticated_status": 401},
+  {"id": "AUTH-02", "method": "GET", "path": "/uaa/users/current", "auth": "bearer", "scope": "any", "success_status": 200, "success_body": "PrincipalResponse", "validation_status": null, "unauthenticated_status": 401},
+  {"id": "AUTH-03", "method": "POST", "path": "/uaa/users", "auth": "bearer", "scope": "server", "success_status": 200, "success_body": "empty", "validation_status": 400, "unauthenticated_status": 401},
+  {"id": "ACCT-01", "method": "POST", "path": "/accounts/", "auth": "anonymous", "scope": null, "success_status": 200, "success_body": "Account", "validation_status": 400, "unauthenticated_status": 200},
+  {"id": "ACCT-02", "method": "GET", "path": "/accounts/{name}", "auth": "anonymous-for-demo", "scope": "server-or-demo", "success_status": 200, "success_body": "Account", "validation_status": null, "unauthenticated_status": 401},
+  {"id": "ACCT-03", "method": "GET", "path": "/accounts/current", "auth": "bearer", "scope": "any", "success_status": 200, "success_body": "Account", "validation_status": null, "unauthenticated_status": 401},
+  {"id": "ACCT-04", "method": "PUT", "path": "/accounts/current", "auth": "bearer", "scope": "any", "success_status": 200, "success_body": "empty", "validation_status": 400, "unauthenticated_status": 401},
+  {"id": "STAT-01", "method": "GET", "path": "/statistics/current", "auth": "bearer", "scope": "any", "success_status": 200, "success_body": "DataPoint[]", "validation_status": null, "unauthenticated_status": 401},
+  {"id": "STAT-02", "method": "GET", "path": "/statistics/{accountName}", "auth": "bearer", "scope": "server-or-demo", "success_status": 200, "success_body": "DataPoint[]", "validation_status": null, "unauthenticated_status": 401},
+  {"id": "STAT-03", "method": "PUT", "path": "/statistics/{accountName}", "auth": "bearer", "scope": "server", "success_status": 200, "success_body": "empty", "validation_status": 400, "unauthenticated_status": 401},
+  {"id": "NOTI-01", "method": "GET", "path": "/notifications/recipients/current", "auth": "bearer", "scope": "any", "success_status": 200, "success_body": "Recipient", "validation_status": null, "unauthenticated_status": 401},
+  {"id": "NOTI-02", "method": "PUT", "path": "/notifications/recipients/current", "auth": "bearer", "scope": "any", "success_status": 200, "success_body": "Recipient", "validation_status": 400, "unauthenticated_status": 401}
+  ],
+  "oauth_clients": [
+  {"client_id": "browser", "secret_env": null, "grant_types": ["refresh_token", "password"], "scopes": ["ui"]},
+  {"client_id": "account-service", "secret_env": "ACCOUNT_SERVICE_PASSWORD", "grant_types": ["client_credentials", "refresh_token"], "scopes": ["server"]},
+  {"client_id": "statistics-service", "secret_env": "STATISTICS_SERVICE_PASSWORD", "grant_types": ["client_credentials", "refresh_token"], "scopes": ["server"]},
+  {"client_id": "notification-service", "secret_env": "NOTIFICATION_SERVICE_PASSWORD", "grant_types": ["client_credentials", "refresh_token"], "scopes": ["server"]}
+  ],
+  "collections": [
+  {"name": "users", "mongo_host": "auth-mongodb", "key_field": "username"},
+  {"name": "accounts", "mongo_host": "account-mongodb", "key_field": "name"},
+  {"name": "datapoints", "mongo_host": "statistics-mongodb", "key_field": "id"},
+  {"name": "recipients", "mongo_host": "notification-mongodb", "key_field": "accountName"}
+  ],
+  "outbound_clients": [
+  {"caller": "account-service", "name": "AuthServiceClient.createUser", "method": "POST", "path": "/uaa/users", "fallback": null},
+  {"caller": "account-service", "name": "StatisticsServiceClient.updateStatistics", "method": "PUT", "path": "/statistics/{accountName}", "fallback": "StatisticsServiceClientFallback"},
+  {"caller": "notification-service", "name": "AccountServiceClient.getAccount", "method": "GET", "path": "/accounts/{accountName}", "fallback": null},
+  {"caller": "statistics-service", "name": "ExchangeRatesClient.getRates", "method": "GET", "path": "${rates.url}/latest", "fallback": "ExchangeRatesClientFallback"}
+  ],
+  "scheduled_jobs": [
+  {"name": "backup", "cron": "0 0 12 * * *", "property": "backup.cron", "subject": "PiggyMetrics account backup", "attachment": "backup.json"},
+  {"name": "remind", "cron": "0 0 0 * * *", "property": "remind.cron", "subject": "PiggyMetrics reminder", "attachment": null}
+  ],
+  "counts": {"endpoints": 12, "routes": 4, "collections": 4, "outbound_clients": 4, "scheduled_jobs": 2, "oauth_clients": 4},
+  "baseline_tests": {"test_classes": 25, "test_methods": 61}
+}
