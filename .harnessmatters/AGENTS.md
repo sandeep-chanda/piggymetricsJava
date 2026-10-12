@@ -1,4 +1,4 @@
 # sandeep-chanda/piggymetricsJava
 
 HarnessMatters project key: `sandeep-chanda-piggymetricsJava`
-Connector: `b40a1b9b-54a0-4136-ba55-508d6baee45b`
+Connector: `2eac28dd-8701-4a42-8e78-ea8b38261cc1`
