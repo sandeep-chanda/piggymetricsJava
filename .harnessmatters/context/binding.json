@@ -1,7 +1,7 @@
 {
-  "connector_id": "b40a1b9b-54a0-4136-ba55-508d6baee45b",
-  "external_id": "sandeep-chanda/piggymetricsJava",
-  "workspace_id": "c9362b75-1954-4b51-aab0-eb724ac2c669",
-  "account_login": null,
+  "connector_id": "2eac28dd-8701-4a42-8e78-ea8b38261cc1",
+  "external_id": "gh-repo:sandeep-chanda/piggymetricsJava",
+  "workspace_id": "cce8be4b-c352-43b6-bfe2-51116f607506",
+  "account_login": "sandeep-chanda",
   "repo_full_name": "sandeep-chanda/piggymetricsJava"
 }
