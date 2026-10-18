@@ -1,0 +1,7 @@
+task_id: walk-17-oct
+from: Spring Boot 2.0.3.RELEASE and Spring Cloud Finchley.RELEASE
+to: Spring Boot 2.3.12.RELEASE and Spring Cloud Hoxton.SR12
+java: '1.8'
+triggered: true
+data_migration: none
+rollback: git checkout -- pom.xml and the four service poms and the two Application classes

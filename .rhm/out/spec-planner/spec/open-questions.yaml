@@ -1,0 +1,5 @@
+questions:
+- id: Q-SPEC-001
+  question: Which of Keep versus Replace wins for Eureka, Feign, Zuul, OAuth, Hystrix, Config, and Turbine?
+  status: resolved
+  resolution: D-002 keeps them.

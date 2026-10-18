@@ -1,0 +1,16 @@
+id: R-006
+question: Which Java files construct CustomConversions from a list?
+conclusion: Only StatisticsApplication and NotificationServiceApplication construct org.springframework.data.mongodb.core.convert.CustomConversions
+  from a converter list.
+evidence:
+- repository: target
+  file: statistics-service/src/main/java/com/piggymetrics/statistics/StatisticsApplication.java
+  location: lines 33-39
+  note: DataPointId converters.
+- repository: target
+  file: notification-service/src/main/java/com/piggymetrics/notification/NotificationServiceApplication.java
+  location: lines 30-37
+  note: Frequency converters.
+confidence: high
+implication: Both beans become MongoCustomConversions. No other call site exists.
+conflicts_with: []

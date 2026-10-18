@@ -1,0 +1,22 @@
+questions:
+- id: Q-001
+  question: Which manifests declare the platform libraries?
+  dimension: repository
+  status: answered
+  finding_refs:
+  - R-001
+- id: Q-002
+  question: Which source files break when the parent moves to Boot 2.3?
+  dimension: repository
+  status: answered
+  finding_refs:
+  - R-004
+  - R-006
+- id: Q-003
+  question: Which Spring Cloud train still ships Zuul, Hystrix, Turbine, and spring-cloud-starter-oauth2
+    with Boot 2.3?
+  dimension: external
+  status: answered
+  finding_refs:
+  - R-002
+  - R-003

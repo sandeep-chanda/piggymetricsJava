@@ -1,0 +1,12 @@
+id: R-007
+question: Which MongoDB driver does Boot 2.3.12 manage?
+conclusion: spring-boot-dependencies 2.3.12.RELEASE sets mongodb.version 4.0.6, which is the Spring Data
+  MongoDB 3 generation that exposes MongoCustomConversions.
+evidence:
+- repository: external
+  file: spring-boot-dependencies-2.3.12.RELEASE.pom
+  location: mongodb.version
+  note: 4.0.6
+confidence: high
+implication: The two conversion beans must use MongoCustomConversions.
+conflicts_with: []

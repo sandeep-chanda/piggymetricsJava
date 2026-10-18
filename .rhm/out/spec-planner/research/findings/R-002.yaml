@@ -1,0 +1,11 @@
+id: R-002
+question: Which Boot release does Hoxton.SR12 support?
+conclusion: Spring Cloud Hoxton.SR12 documents supported Boot version 2.3.12.RELEASE.
+evidence:
+- repository: external
+  file: https://docs.spring.io/spring-cloud/docs/Hoxton.SR12/reference/html/
+  location: release header
+  note: Supported Boot Version 2.3.12.RELEASE.
+confidence: high
+implication: Parent version pin is 2.3.12.RELEASE.
+conflicts_with: []

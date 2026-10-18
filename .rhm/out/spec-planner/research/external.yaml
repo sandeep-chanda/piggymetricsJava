@@ -1,0 +1,11 @@
+sources:
+- url: https://docs.spring.io/spring-cloud/docs/Hoxton.SR12/reference/html/
+  note: Hoxton.SR12 supported Boot version 2.3.12.RELEASE.
+- url: https://github.com/spring-cloud/spring-cloud-release/wiki/Spring-Cloud-Hoxton-Release-Notes
+  note: Hoxton.SR12 ships Spring Cloud Netflix 2.2.9.RELEASE.
+- url: https://repo1.maven.org/maven2/org/springframework/cloud/spring-cloud-dependencies/Hoxton.SR12/spring-cloud-dependencies-Hoxton.SR12.pom
+  note: spring-cloud-netflix.version 2.2.9.RELEASE and spring-cloud-security.version 2.2.5.RELEASE.
+- url: https://repo1.maven.org/maven2/org/springframework/cloud/spring-cloud-security-dependencies/2.2.5.RELEASE/spring-cloud-security-dependencies-2.2.5.RELEASE.pom
+  note: Manages spring-cloud-starter-oauth2 2.2.5.RELEASE.
+- url: https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-dependencies/2.3.12.RELEASE/spring-boot-dependencies-2.3.12.RELEASE.pom
+  note: embedded-mongo.version 2.2.0 and mongodb.version 4.0.6.

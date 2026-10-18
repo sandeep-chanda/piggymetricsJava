@@ -1,0 +1,13 @@
+task_id: walk-17-oct
+stack:
+  language: Java 1.8
+  build: Maven multi-module
+  parent: org.springframework.boot:spring-boot-starter-parent:2.0.3.RELEASE
+  cloud: Finchley.RELEASE
+  ci: .travis.yml language java jdk oraclejdk8
+  runtime: Docker Compose with java:8-jre images
+evidence:
+- pom.xml
+- .travis.yml
+- account-service/Dockerfile
+- README.md

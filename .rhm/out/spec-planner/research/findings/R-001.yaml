@@ -1,0 +1,12 @@
+id: R-001
+question: What stack and modules does the root manifest declare?
+conclusion: pom.xml uses spring-boot-starter-parent 2.0.3.RELEASE, spring-cloud.version Finchley.RELEASE,
+  java.version 1.8, and nine modules.
+evidence:
+- repository: target
+  file: pom.xml
+  location: lines 11-45
+  note: Parent, properties, and modules.
+confidence: high
+implication: The modernization edits this parent and property pair.
+conflicts_with: []

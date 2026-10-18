@@ -1,0 +1,141 @@
+decisions:
+- id: D-001
+  decision: Set the root parent to Spring Boot 2.3.12.RELEASE and spring-cloud.version to Hoxton.SR12,
+    and keep java.version at 1.8.
+  alternatives:
+  - Stay on Boot 2.0.3.RELEASE and Finchley.RELEASE
+  - Move to Boot 2.3.12.RELEASE and Hoxton.SR12
+  - Move to Boot 3 and a current Spring Cloud train
+  chosen: Move to Boot 2.3.12.RELEASE and Hoxton.SR12
+  rationale: Hoxton.SR12 documents Boot 2.3.12.RELEASE as its supported Boot version and still imports
+    Netflix 2.2.9.RELEASE. Java 1.8 matches .travis.yml and the java:8-jre Dockerfiles.
+  evidence_refs:
+  - R-001
+  - R-002
+  - R-009
+  consequences:
+  - Compiler release stays 1.8.
+  - Dockerfiles stay on java:8-jre.
+  constraints:
+  - Do not set java.version to 11 or 17.
+  rejected_with_reason:
+  - alt: Stay on Boot 2.0.3.RELEASE and Finchley.RELEASE
+    why: That is the current tree, so it does not perform the modernization.
+  - alt: Move to Boot 3 and a current Spring Cloud train
+    why: Boot 3 drops javax packages and the 2020.0 train drops Zuul, Hystrix, and Turbine, which is a
+      rewrite the spec puts out of scope.
+- id: D-002
+  decision: Keep Eureka, Feign, Zuul, Spring Security OAuth, Hystrix, Spring Cloud Config, and Turbine
+    on their current artifactIds.
+  alternatives:
+  - Keep the seven platform libraries
+  - Replace the seven platform libraries
+  chosen: Keep the seven platform libraries
+  rationale: The spec lists both Keep and Replace, and it also says a rewrite is out of scope. MUST-reuse
+    classes carry @EnableEurekaServer, @EnableZuulProxy, @EnableFeignClients, @EnableResourceServer, @EnableAuthorizationServer,
+    @EnableHystrixDashboard, @EnableTurbineStream, and @EnableConfigServer. Hoxton.SR12 still manages
+    those starters.
+  evidence_refs:
+  - R-003
+  - R-006
+  consequences:
+  - No Spring Cloud Gateway, Resilience4j, or Spring Authorization Server modules are added.
+  constraints:
+  - Do not delete the current starter artifactIds.
+  rejected_with_reason:
+  - alt: Replace the seven platform libraries
+    why: Replacement deletes the annotations on MUST-reuse classes and contradicts the out-of-scope rewrite
+      line.
+- id: D-003
+  decision: Add spring-boot-starter-validation with no version to account-service, auth-service, statistics-service,
+    and notification-service.
+  alternatives:
+  - Add spring-boot-starter-validation
+  - Leave validation on the web starter transitive graph
+  chosen: Add spring-boot-starter-validation
+  rationale: Those four modules import javax.validation and Boot 2.3 no longer exposes that API through
+    spring-boot-starter-web.
+  evidence_refs:
+  - R-004
+  consequences:
+  - Four pom files gain one dependency.
+  constraints:
+  - Do not add the starter to modules that do not import javax.validation.
+  rejected_with_reason:
+  - alt: Leave validation on the web starter transitive graph
+    why: Boot 2.3 removed that transitive dependency, so compilation of @Valid would fail.
+- id: D-004
+  decision: Change the two CustomConversions beans to MongoCustomConversions.
+  alternatives:
+  - Construct MongoCustomConversions
+  - Keep new CustomConversions(List)
+  chosen: Construct MongoCustomConversions
+  rationale: Boot 2.3.12 manages MongoDB driver 4.0.6 and Spring Data MongoDB 3, whose supported bean
+    type is MongoCustomConversions. Reference search finds only these two construction sites.
+  evidence_refs:
+  - R-006
+  - R-007
+  consequences:
+  - StatisticsApplication.java and NotificationServiceApplication.java are the only Java edits.
+  constraints:
+  - Converter classes and controllers stay byte-identical.
+  rejected_with_reason:
+  - alt: Keep new CustomConversions(List)
+    why: That constructor is the Finchley-era call that does not survive the Spring Data MongoDB 3 bean
+      type.
+- id: D-005
+  decision: Remove the de.flapdoodle.embed.mongo version 1.50.3 element so Boot 2.3.12 manages 2.2.0.
+  alternatives:
+  - Delete the version element
+  - Keep version 1.50.3
+  chosen: Delete the version element
+  rationale: The parent BOM sets embedded-mongo.version to 2.2.0. A direct 1.50.3 pin overrides that test
+    client.
+  evidence_refs:
+  - R-005
+  consequences:
+  - The four data-service poms no longer pin embed mongo.
+  constraints:
+  - Do not add a different explicit version.
+  rejected_with_reason:
+  - alt: Keep version 1.50.3
+    why: It overrides the Boot-managed test client used with MongoDB driver 4.0.6.
+- id: D-006
+  decision: Edit statistics-service and notification-service even though P2.T1 omitted their names, and
+    leave turbine-stream-service sources unchanged.
+  alternatives:
+  - Limit edits to the seven names in P2.T1
+  - Also edit the two services whose sources do not compile on Boot 2.3
+  chosen: Also edit the two services whose sources do not compile on Boot 2.3
+  rationale: The root reactor lists all nine modules. statistics-service and notification-service are
+    the CustomConversions call sites. turbine-stream-service has no such call site and no javax.validation
+    import, so its manifest stays.
+  evidence_refs:
+  - R-001
+  - R-006
+  consequences:
+  - Turbine, config, gateway, monitoring, and registry manifests stay byte-identical.
+  constraints:
+  - Do not create a new module for statistics or notifications.
+  rejected_with_reason:
+  - alt: Limit edits to the seven names in P2.T1
+    why: mvn test from the root pom would then fail in statistics-service and notification-service.
+- id: D-007
+  decision: Smoke the reworked build with docker-compose -f docker-compose.yml -f docker-compose.dev.yml
+    up -d, and validate docker-compose.yml with docker-compose config.
+  alternatives:
+  - Start the dev overlay after packaging
+  - Start docker-compose.yml up against sqshq images in the same session
+  chosen: Start the dev overlay after packaging
+  rationale: README defines the dev overlay as the local build path. docker-compose.yml pulls sqshq images
+    and binds the same host ports, so it does not prove this commit and collides with the dev stack.
+  evidence_refs:
+  - R-008
+  - R-009
+  consequences:
+  - Compose files and .travis.yml are not edited.
+  constraints:
+  - Do not run docker-compose -f docker-compose.yml up while the dev overlay is up.
+  rejected_with_reason:
+  - alt: Start docker-compose.yml up against sqshq images in the same session
+    why: Those images are not built from this commit and they bind ports 80, 8761, and 9000.

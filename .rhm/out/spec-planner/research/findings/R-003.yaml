@@ -1,0 +1,16 @@
+id: R-003
+question: Does Hoxton.SR12 still manage spring-cloud-starter-oauth2 and Netflix 2.2.x?
+conclusion: The Hoxton.SR12 BOM imports spring-cloud-netflix 2.2.9.RELEASE and spring-cloud-security 2.2.5.RELEASE,
+  and that security BOM manages spring-cloud-starter-oauth2.
+evidence:
+- repository: external
+  file: spring-cloud-dependencies-Hoxton.SR12.pom
+  location: properties
+  note: spring-cloud-netflix.version 2.2.9.RELEASE and spring-cloud-security.version 2.2.5.RELEASE.
+- repository: external
+  file: spring-cloud-security-dependencies-2.2.5.RELEASE.pom
+  location: dependencyManagement
+  note: spring-cloud-starter-oauth2 version is the project version.
+confidence: high
+implication: Current artifactIds keep resolving. A 2020.0 train would drop Zuul, Hystrix, and Turbine.
+conflicts_with: []

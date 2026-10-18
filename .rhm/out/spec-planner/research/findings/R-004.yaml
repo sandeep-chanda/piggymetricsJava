@@ -1,0 +1,13 @@
+id: R-004
+question: Which modules import javax.validation?
+conclusion: account-service, auth-service, statistics-service, and notification-service import javax.validation.
+  Their poms depend on spring-boot-starter-web and do not declare spring-boot-starter-validation.
+evidence:
+- repository: target
+  file: account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+  location: import javax.validation.Valid
+  note: Also auth UserController, statistics StatisticsController, notification RecipientController.
+confidence: high
+implication: Those four poms must declare spring-boot-starter-validation because Boot 2.3 removed it from
+  the web starter transitive set.
+conflicts_with: []

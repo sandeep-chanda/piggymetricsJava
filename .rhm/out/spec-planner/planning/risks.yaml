@@ -1,0 +1,7 @@
+risks:
+- id: RISK-001
+  text: Embedded Mongo binary download can fail in a closed network.
+  mitigation: STEP acceptance stops on test failure. Do not skip tests.
+- id: RISK-002
+  text: config Dockerfile HEALTHCHECK uses curl, which java:8-jre may not contain.
+  mitigation: Host curl to port 8888 is the smoke check. Do not edit the Dockerfile.

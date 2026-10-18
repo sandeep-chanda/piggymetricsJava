@@ -1,0 +1,21 @@
+id: R-008
+question: How does this repo start the estate?
+conclusion: README says mvn package, docker-compose up for production images, and docker-compose -f docker-compose.yml
+  -f docker-compose.dev.yml up to build locally. Production images are sqshq/piggymetrics-*.
+evidence:
+- repository: target
+  file: README.md
+  location: Let's try it out
+  note: Both compose invocations.
+- repository: target
+  file: docker-compose.yml
+  location: image keys
+  note: sqshq/piggymetrics-* images.
+- repository: target
+  file: docker-compose.dev.yml
+  location: build keys
+  note: Local module builds and host ports.
+confidence: high
+implication: Smoke the reworked build with the dev overlay. Validate the production file with docker-compose
+  config. Do not up the production file in the same session.
+conflicts_with: []

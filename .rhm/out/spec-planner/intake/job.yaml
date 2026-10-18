@@ -1,0 +1,12 @@
+task_id: walk-17-oct
+spec_path: /tmp/spec-planner-in/spec.md
+target_repo_path: /agent/piggymetricsJava
+connection_meta_path: /agent/piggymetricsJava/.rhm/agent-packs/spec-planner/workspace/walk-17-oct/intake/connection.meta.json
+related_repos: []
+mode: plan_only
+constraints:
+  - Cursor Plan Mode only
+  - No writes to target repository
+  - Writes only under this workspace
+  - Use connection.meta sibling_repos + auth refs (docs/CONNECTION.md)
+created_at: 2026-10-18T11:54:45.606695+00:00

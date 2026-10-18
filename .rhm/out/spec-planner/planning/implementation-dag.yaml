@@ -1,0 +1,207 @@
+task_id: walk-17-oct
+nodes:
+- id: STEP-000
+  playbook_ref: STEP-000
+  title: Create branch walk-17-oct-modernization from master
+  depends_on: []
+  critical_path: true
+  exact_files:
+  - .git
+  summary_spec: HEAD is branch walk-17-oct-modernization, created from master, and no manifest file has been edited yet.
+  verification:
+    machine:
+    - git rev-parse --abbrev-ref HEAD
+    human:
+    - The status line shows branch walk-17-oct-modernization.
+  acceptance:
+  - HEAD is walk-17-oct-modernization
+  - The branch point is the current master commit
+  no_imagination: true
+- id: STEP-001
+  playbook_ref: STEP-001
+  title: Set root parent to Boot 2.3.12.RELEASE and Hoxton.SR12
+  depends_on:
+  - STEP-000
+  critical_path: true
+  exact_files:
+  - pom.xml
+  summary_spec: pom.xml parent is spring-boot-starter-parent 2.3.12.RELEASE, spring-cloud.version is Hoxton.SR12, and java.version
+    is 1.8. The nine modules are unchanged.
+  verification:
+    machine:
+    - mvn -B -N help:evaluate -Dexpression=spring-cloud.version -q -DforceStdout
+    human:
+    - pom.xml shows 2.3.12.RELEASE and Hoxton.SR12.
+  acceptance:
+  - pom.xml parent version is 2.3.12.RELEASE
+  - spring-cloud.version is Hoxton.SR12
+  - java.version is 1.8
+  no_imagination: true
+- id: STEP-002
+  playbook_ref: STEP-002
+  title: Add validation starter on account-service and drop embed pin
+  depends_on:
+  - STEP-001
+  critical_path: true
+  exact_files:
+  - account-service/pom.xml
+  summary_spec: account-service/pom.xml declares spring-boot-starter-validation with no version and de.flapdoodle.embed.mongo
+    with no version element. Java sources in that module are unchanged and mvn -B -pl account-service -am test exits 0.
+  verification:
+    machine:
+    - mvn -B -pl account-service -am test
+    human:
+    - The validation dependency is present and the embed mongo version line is absent.
+  acceptance:
+  - account-service/pom.xml contains spring-boot-starter-validation
+  - mvn -B -pl account-service -am test exits 0
+  no_imagination: true
+- id: STEP-003
+  playbook_ref: STEP-003
+  title: Add validation starter on auth-service and drop embed pin
+  depends_on:
+  - STEP-001
+  critical_path: true
+  exact_files:
+  - auth-service/pom.xml
+  summary_spec: auth-service/pom.xml declares spring-boot-starter-validation with no version and de.flapdoodle.embed.mongo
+    with no version element. Java sources in that module are unchanged and mvn -B -pl auth-service -am test exits 0.
+  verification:
+    machine:
+    - mvn -B -pl auth-service -am test
+    human:
+    - The validation dependency is present and the embed mongo version line is absent.
+  acceptance:
+  - auth-service/pom.xml contains spring-boot-starter-validation
+  - mvn -B -pl auth-service -am test exits 0
+  no_imagination: true
+- id: STEP-004
+  playbook_ref: STEP-004
+  title: Add validation starter on statistics-service and drop embed pin
+  depends_on:
+  - STEP-001
+  critical_path: true
+  exact_files:
+  - statistics-service/pom.xml
+  summary_spec: statistics-service/pom.xml declares spring-boot-starter-validation with no version and de.flapdoodle.embed.mongo
+    with no version element. Guava stays at 19.0. The module version stays 1.0-SNAPSHOT.
+  verification:
+    machine:
+    - mvn -B -pl statistics-service -am test -DskipTests
+    human:
+    - The validation dependency is present and the embed mongo version line is absent.
+  acceptance:
+  - statistics-service/pom.xml contains spring-boot-starter-validation
+  - guava version 19.0 remains
+  no_imagination: true
+- id: STEP-005
+  playbook_ref: STEP-005
+  title: Add validation starter on notification-service and drop embed pin
+  depends_on:
+  - STEP-001
+  critical_path: true
+  exact_files:
+  - notification-service/pom.xml
+  summary_spec: notification-service/pom.xml declares spring-boot-starter-validation with no version and de.flapdoodle.embed.mongo
+    with no version element. The module version stays 1.0.0-SNAPSHOT.
+  verification:
+    machine:
+    - mvn -B -pl notification-service -am test -DskipTests
+    human:
+    - The validation dependency is present and the embed mongo version line is absent.
+  acceptance:
+  - notification-service/pom.xml contains spring-boot-starter-validation
+  - module version remains 1.0.0-SNAPSHOT
+  no_imagination: true
+- id: STEP-006
+  playbook_ref: STEP-006
+  title: Point statistics conversions at MongoCustomConversions
+  depends_on:
+  - STEP-004
+  critical_path: true
+  exact_files:
+  - statistics-service/src/main/java/com/piggymetrics/statistics/StatisticsApplication.java
+  summary_spec: StatisticsApplication.java imports MongoCustomConversions and the customConversions bean returns new MongoCustomConversions
+    with DataPointIdReaderConverter and DataPointIdWriterConverter. mvn -B -pl statistics-service -am test exits 0.
+  verification:
+    machine:
+    - mvn -B -pl statistics-service -am test
+    human:
+    - The file imports MongoCustomConversions.
+  acceptance:
+  - StatisticsApplication.java matches the exact_snippet
+  - mvn -B -pl statistics-service -am test exits 0
+  no_imagination: true
+- id: STEP-007
+  playbook_ref: STEP-007
+  title: Point notification conversions at MongoCustomConversions
+  depends_on:
+  - STEP-005
+  critical_path: true
+  exact_files:
+  - notification-service/src/main/java/com/piggymetrics/notification/NotificationServiceApplication.java
+  summary_spec: NotificationServiceApplication.java imports MongoCustomConversions and the customConversions bean returns
+    new MongoCustomConversions with FrequencyReaderConverter and FrequencyWriterConverter. mvn -B -pl notification-service
+    -am test exits 0.
+  verification:
+    machine:
+    - mvn -B -pl notification-service -am test
+    human:
+    - The file imports MongoCustomConversions.
+  acceptance:
+  - NotificationServiceApplication.java matches the exact_snippet
+  - mvn -B -pl notification-service -am test exits 0
+  no_imagination: true
+- id: STEP-008
+  playbook_ref: STEP-008
+  title: Run root Maven tests and Compose smoke checks
+  depends_on:
+  - STEP-002
+  - STEP-003
+  - STEP-006
+  - STEP-007
+  critical_path: true
+  exact_files:
+  - config/Dockerfile
+  summary_spec: mvn -B test from the repository root exits 0. .travis.yml, both Compose files, and gateway.yml are byte-identical
+    to master. The dev overlay is up and config health, Eureka, and the gateway answer on ports 8888, 8761, and 80.
+  verification:
+    machine:
+    - mvn -B test
+    - docker-compose -f docker-compose.yml config
+    human:
+    - curl -fsS http://127.0.0.1:8888/actuator/health prints a JSON body containing UP.
+    - curl -fsS http://127.0.0.1:8761/ prints a page containing Eureka.
+  acceptance:
+  - mvn -B test exits 0
+  - git diff --exit-code -- .travis.yml exits 0
+  - config health URL returns a body that contains UP
+  no_imagination: true
+edges:
+- from: STEP-000
+  to: STEP-001
+- from: STEP-001
+  to: STEP-002
+- from: STEP-001
+  to: STEP-003
+- from: STEP-001
+  to: STEP-004
+- from: STEP-001
+  to: STEP-005
+- from: STEP-004
+  to: STEP-006
+- from: STEP-005
+  to: STEP-007
+- from: STEP-002
+  to: STEP-008
+- from: STEP-003
+  to: STEP-008
+- from: STEP-006
+  to: STEP-008
+- from: STEP-007
+  to: STEP-008
+parallel_groups:
+- - STEP-002
+  - STEP-003
+  - STEP-004
+  - STEP-005

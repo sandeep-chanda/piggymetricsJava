@@ -1,0 +1,5 @@
+provider: github
+organization: sandeep-chanda
+sibling_repos_supplied: []
+local_inspect: none
+discovery: connection.meta sibling_repos is empty. No sibling was cloned.

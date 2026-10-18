@@ -1,0 +1,11 @@
+result: PASS
+critical_unanswered: []
+qa:
+- q: What is the final exact_snippet for pom.xml?
+  a: The STEP-001 exact_snippet is the full pom.xml body with parent 2.3.12.RELEASE and Hoxton.SR12.
+- q: Which Java files change?
+  a: Only the two Application classes whose exact_snippet uses MongoCustomConversions.
+- q: What branch is created?
+  a: walk-17-oct-modernization from master.
+- q: How is the artifact verified?
+  a: mvn -B test, then the dev compose overlay, then curl of the config health endpoint.

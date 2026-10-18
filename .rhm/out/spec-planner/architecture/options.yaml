@@ -1,0 +1,6 @@
+options:
+- id: OPT-KEEP
+  summary: Hoxton.SR12 keeps the current starters.
+- id: OPT-REPLACE
+  summary: Boot 3 replaces Zuul, Hystrix, Turbine, and the OAuth annotations.
+selected: OPT-KEEP

@@ -1,0 +1,16 @@
+id: R-005
+question: Where is the embed mongo version pinned?
+conclusion: account-service, auth-service, statistics-service, and notification-service pin de.flapdoodle.embed.mongo
+  1.50.3. Boot 2.3.12 manages embedded-mongo.version 2.2.0.
+evidence:
+- repository: target
+  file: account-service/pom.xml
+  location: dependency de.flapdoodle.embed.mongo
+  note: version 1.50.3
+- repository: external
+  file: spring-boot-dependencies-2.3.12.RELEASE.pom
+  location: embedded-mongo.version
+  note: 2.2.0
+confidence: high
+implication: Remove the 1.50.3 version element so the parent manages the test client.
+conflicts_with: []

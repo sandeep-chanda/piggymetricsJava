@@ -1,0 +1,7 @@
+items:
+- category: STACK
+  question: Boot 3 versus Hoxton?
+  severity: minor
+  action: ALLOW
+  resolution: D-001
+critical_unresolved_count: 0

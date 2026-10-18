@@ -1,0 +1,57 @@
+title: Walk 17 Oct modernization
+summary: In-place Spring Boot 2.3.12.RELEASE and Spring Cloud Hoxton.SR12 upgrade of piggymetricsJava
+  on Java 1.8, keeping the current Netflix and OAuth modules.
+requirements:
+- id: REQ-001
+  type: migration
+  text: Rework the Java services in piggymetricsJava in place on the existing nine Maven modules.
+  acceptance:
+  - Root pom parent is 2.3.12.RELEASE and spring-cloud.version is Hoxton.SR12.
+- id: REQ-002
+  type: constraint
+  text: Preserve gateway routes /uaa/**, /accounts/**, /statistics/**, and /notifications/**.
+  acceptance:
+  - config/src/main/resources/shared/gateway.yml is byte-identical.
+- id: REQ-003
+  type: constraint
+  text: Keep Eureka, Feign, Zuul, Spring Security OAuth, Hystrix, Spring Cloud Config, and Turbine on
+    their current artifactIds.
+  acceptance:
+  - Module poms still declare those artifactIds.
+- id: REQ-004
+  type: constraint
+  text: Reuse the listed Application classes, bootstrap files, shared yml, Feign clients, and controllers
+    on their current paths.
+  acceptance:
+  - Only StatisticsApplication.java and NotificationServiceApplication.java change among Java sources.
+- id: REQ-005
+  type: acceptance
+  text: Root Maven verification passes, including account, auth, config, gateway, monitoring, notification,
+    and registry.
+  acceptance:
+  - mvn -B test exits 0.
+- id: REQ-007
+  type: operational
+  text: Exercise docker-compose.yml and docker-compose.dev.yml and leave the Travis workflow in place.
+  acceptance:
+  - Dev overlay smoke checks pass and .travis.yml is unchanged.
+- id: REQ-008
+  type: operational
+  text: Solo delivery on one branch cut from master with one pull request back to master.
+  acceptance:
+  - Branch name is walk-17-oct-modernization.
+- id: REQ-009
+  type: acceptance
+  text: Smoke-check service startup, discovery, and configuration.
+  acceptance:
+  - Config health contains UP and Eureka answers on port 8761.
+ambiguities:
+- The spec lists Keep and Replace for the same seven platform components.
+- P2.T1 names seven modules and omits statistics-service and turbine-stream-service, while the root reactor
+  includes both.
+assumptions:
+- text: Default branch master is the branch the implementation pull request targets.
+  confidence: high
+- text: Author confirmation of the rework is satisfied by the decision record because a rewrite is explicitly
+    out of scope and the keep lines match the MUST-reuse annotations.
+  confidence: high

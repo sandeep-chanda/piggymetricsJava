@@ -1,0 +1,864 @@
+task_id: walk-17-oct
+summary: In-place modernization of piggymetricsJava to Spring Boot 2.3.12.RELEASE and Spring Cloud Hoxton.SR12 on Java 1.8,
+  keeping Eureka, Feign, Zuul, Spring Security OAuth, Hystrix, Config, and Turbine.
+steps:
+- id: STEP-000
+  title: Create branch walk-17-oct-modernization from master
+  depends_on: []
+  requirement_refs:
+  - REQ-008
+  decision_refs:
+  - D-001
+  evidence_refs:
+  - R-001
+  files:
+  - .git
+  exact_files:
+  - .git
+  exact_branch: walk-17-oct-modernization
+  existing_implementation: |
+    origin/HEAD is master (git remote show origin).
+  line_anchor: |
+    repository default branch master
+  change: |
+    Cut branch walk-17-oct-modernization from master before any manifest edit. All later commits land on that branch. The harness opens one pull request from that branch back to master after P1, P2, and P3.
+  do_not:
+  - Commit modernization edits on master
+  - Commit modernization edits on rhm/pack/spec-planner/5d2e414d
+  - Open more than one pull request
+  compatibility: |
+    Branch name is walk-17-oct-modernization.
+  error_handling: |
+    If the branch name already exists, stop and report the existing ref. Do not pick a second name.
+  tests:
+  - git rev-parse --abbrev-ref HEAD prints walk-17-oct-modernization
+  acceptance:
+  - HEAD is walk-17-oct-modernization
+  - The branch point is the current master commit
+  rollback: |
+    git checkout master && git branch -D walk-17-oct-modernization
+  why: |
+    Solo Delivery requires one branch cut from the default branch master.
+  expected_result: |
+    The working branch is walk-17-oct-modernization.
+  exact_commands:
+  - git checkout master
+  - git checkout -b walk-17-oct-modernization
+  edge_cases:
+  - The branch name is already present on origin.
+  invariants:
+  - Default branch remains master.
+  machine_verify:
+  - git rev-parse --abbrev-ref HEAD
+  human_verify:
+  - The status line shows branch walk-17-oct-modernization.
+  input_contract: |
+    Clean checkout of master.
+  output_contract: |
+    Branch walk-17-oct-modernization checked out.
+  companion_required: false
+  creates_file: false
+- id: STEP-001
+  title: Set root parent to Boot 2.3.12.RELEASE and Hoxton.SR12
+  depends_on:
+  - STEP-000
+  requirement_refs:
+  - REQ-001
+  - REQ-002
+  - REQ-003
+  decision_refs:
+  - D-001
+  - D-002
+  evidence_refs:
+  - R-001
+  - R-002
+  - R-003
+  files:
+  - pom.xml
+  exact_files:
+  - pom.xml
+  existing_implementation: |
+    pom.xml parent spring-boot-starter-parent 2.0.3.RELEASE, property spring-cloud.version Finchley.RELEASE, property java.version 1.8, modules config monitoring registry gateway auth-service account-service statistics-service notification-service turbine-stream-service.
+  line_anchor: |
+    pom.xml:11-21
+  before_snippet: "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\
+    \n\t\t xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\">\n\t<modelVersion>4.0.0</modelVersion>\n\
+    \n\t<groupId>com.piggymetrics</groupId>\n\t<artifactId>piggymetrics</artifactId>\n\t<version>1.0-SNAPSHOT</version>\n\t\
+    <packaging>pom</packaging>\n\t<name>piggymetrics</name>\n\n\t<parent>\n\t\t<groupId>org.springframework.boot</groupId>\n\
+    \t\t<artifactId>spring-boot-starter-parent</artifactId>\n\t\t<version>2.0.3.RELEASE</version>\n\t\t<relativePath/> <!--\
+    \ lookup parent from repository -->\n\t</parent>\n\n\t<properties>\n\t\t<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n\
+    \t\t<spring-cloud.version>Finchley.RELEASE</spring-cloud.version>\n\t\t<java.version>1.8</java.version>\n\t</properties>\n\
+    \n\t<dependencyManagement>\n\t\t<dependencies>\n\t\t\t<dependency>\n\t\t\t\t<groupId>org.springframework.cloud</groupId>\n\
+    \t\t\t\t<artifactId>spring-cloud-dependencies</artifactId>\n\t\t\t\t<version>${spring-cloud.version}</version>\n\t\t\t\
+    \t<type>pom</type>\n\t\t\t\t<scope>import</scope>\n\t\t\t</dependency>\n\t\t</dependencies>\n\t</dependencyManagement>\n\
+    \t\n\t<modules>\n\t\t<module>config</module>\n\t\t<module>monitoring</module>\n\t\t<module>registry</module>\n\t\t<module>gateway</module>\n\
+    \t\t<module>auth-service</module>\n\t\t<module>account-service</module>\n\t\t<module>statistics-service</module>\n\t\t\
+    <module>notification-service</module>\n\t\t<module>turbine-stream-service</module>\n\t</modules>\n\n</project>\n"
+  exact_snippet: "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\
+    \n\t\t xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\">\n\t<modelVersion>4.0.0</modelVersion>\n\
+    \n\t<groupId>com.piggymetrics</groupId>\n\t<artifactId>piggymetrics</artifactId>\n\t<version>1.0-SNAPSHOT</version>\n\t\
+    <packaging>pom</packaging>\n\t<name>piggymetrics</name>\n\n\t<parent>\n\t\t<groupId>org.springframework.boot</groupId>\n\
+    \t\t<artifactId>spring-boot-starter-parent</artifactId>\n\t\t<version>2.3.12.RELEASE</version>\n\t\t<relativePath/> <!--\
+    \ lookup parent from repository -->\n\t</parent>\n\n\t<properties>\n\t\t<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n\
+    \t\t<spring-cloud.version>Hoxton.SR12</spring-cloud.version>\n\t\t<java.version>1.8</java.version>\n\t</properties>\n\n\
+    \t<dependencyManagement>\n\t\t<dependencies>\n\t\t\t<dependency>\n\t\t\t\t<groupId>org.springframework.cloud</groupId>\n\
+    \t\t\t\t<artifactId>spring-cloud-dependencies</artifactId>\n\t\t\t\t<version>${spring-cloud.version}</version>\n\t\t\t\
+    \t<type>pom</type>\n\t\t\t\t<scope>import</scope>\n\t\t\t</dependency>\n\t\t</dependencies>\n\t</dependencyManagement>\n\
+    \t\n\t<modules>\n\t\t<module>config</module>\n\t\t<module>monitoring</module>\n\t\t<module>registry</module>\n\t\t<module>gateway</module>\n\
+    \t\t<module>auth-service</module>\n\t\t<module>account-service</module>\n\t\t<module>statistics-service</module>\n\t\t\
+    <module>notification-service</module>\n\t\t<module>turbine-stream-service</module>\n\t</modules>\n\n</project>\n"
+  change: |
+    Write pom.xml to the pinned final text. The parent version is 2.3.12.RELEASE. The property spring-cloud.version is Hoxton.SR12. The property java.version stays 1.8. Module order and artifact coordinates stay as they are.
+  do_not:
+  - Set java.version to 11 or 17
+  - Import a Spring Cloud release train newer than Hoxton.SR12
+  - Add a new Maven module
+  - Remove a module from the reactor
+  compatibility: |
+    Java 1.8 remains the compiler release so .travis.yml jdk oraclejdk8 and the java:8-jre Dockerfiles stay valid.
+  error_handling: |
+    If Maven cannot resolve Hoxton.SR12, stop. Do not fall forward to 2020.0.0.
+  tests:
+  - mvn -B -N help:evaluate -Dexpression=spring-cloud.version -q -DforceStdout
+  acceptance:
+  - pom.xml parent version is 2.3.12.RELEASE
+  - spring-cloud.version is Hoxton.SR12
+  - java.version is 1.8
+  - The nine module elements are unchanged
+  rollback: |
+    git checkout -- pom.xml
+  why: |
+    Hoxton.SR12 is the last Spring Cloud train whose BOM still manages Zuul, Hystrix, Turbine, Eureka, OpenFeign, Config, and spring-cloud-starter-oauth2, and its supported Boot line is 2.3.12.RELEASE.
+  expected_result: |
+    The reactor parent is Spring Boot 2.3.12.RELEASE with Spring Cloud Hoxton.SR12 and Java 1.8.
+  exact_commands:
+  - mvn -B -N help:evaluate -Dexpression=project.parent.version -q -DforceStdout
+  - mvn -B -N help:evaluate -Dexpression=spring-cloud.version -q -DforceStdout
+  - mvn -B -N help:evaluate -Dexpression=java.version -q -DforceStdout
+  edge_cases:
+  - A mirror that does not carry Hoxton.SR12.
+  invariants:
+  - GroupId com.piggymetrics and artifactId piggymetrics and version 1.0-SNAPSHOT stay.
+  - java.version stays 1.8.
+  machine_verify:
+  - mvn -B -N help:evaluate -Dexpression=spring-cloud.version -q -DforceStdout
+  human_verify:
+  - pom.xml shows 2.3.12.RELEASE and Hoxton.SR12 on the parent and property lines.
+  input_contract: |
+    STEP-000 branch is checked out.
+  output_contract: |
+    Root pom.xml matches the exact_snippet bytes.
+  companion_required: false
+  creates_file: false
+- id: STEP-002
+  title: Add validation starter on account-service and drop embed pin
+  depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-004
+  - REQ-005
+  decision_refs:
+  - D-003
+  - D-005
+  evidence_refs:
+  - R-004
+  - R-005
+  files:
+  - account-service/pom.xml
+  exact_files:
+  - account-service/pom.xml
+  existing_implementation: |
+    account-service/pom.xml depends on spring-boot-starter-web without spring-boot-starter-validation, and pins de.flapdoodle.embed.mongo 1.50.3 for tests. Controllers import javax.validation.Valid.
+  line_anchor: |
+    account-service/pom.xml dependencies
+  before_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n\txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n\t<modelVersion>4.0.0</modelVersion>\n\n\t<artifactId>account-service</artifactId>\n\t<version>1.0-SNAPSHOT</version>\n\
+    \t<packaging>jar</packaging>\n\n\t<name>account-service</name>\n\n\t<parent>\n\t\t<groupId>com.piggymetrics</groupId>\n\
+    \t\t<artifactId>piggymetrics</artifactId>\n\t\t<version>1.0-SNAPSHOT</version>\n\t</parent>\n\n\t<dependencies>\n\t\t\
+    <dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-oauth2</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-security</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-config</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-web</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-openfeign</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-sleuth</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-data-mongodb</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-bus-amqp</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-netflix-hystrix</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-netflix-hystrix-stream</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-test</artifactId>\n\
+    \t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>de.flapdoodle.embed</groupId>\n\t\t\t<artifactId>de.flapdoodle.embed.mongo</artifactId>\n\
+    \t\t\t<version>1.50.3</version>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>com.jayway.jsonpath</groupId>\n\
+    \t\t\t<artifactId>json-path</artifactId>\n\t\t\t<version>2.2.0</version>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\
+    \t</dependencies>\n\t\n\t<build>\n\t\t<plugins>\n\t\t\t<plugin>\n\t\t\t\t<groupId>org.springframework.boot</groupId>\n\
+    \t\t\t\t<artifactId>spring-boot-maven-plugin</artifactId>\n\t\t\t\t<configuration>\n\t\t\t\t\t<finalName>account-service</finalName>\n\
+    \t\t\t\t</configuration>\n\t\t\t</plugin>\n\t\t\t<plugin>\n\t\t\t\t<groupId>org.jacoco</groupId>\n\t\t\t\t<artifactId>jacoco-maven-plugin</artifactId>\n\
+    \t\t\t\t<version>0.7.6.201602180812</version>\n\t\t\t\t<executions>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<goals>\n\t\t\t\
+    \t\t\t\t<goal>prepare-agent</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t\
+    <id>report</id>\n\t\t\t\t\t\t<phase>test</phase>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>report</goal>\n\t\t\t\t\t\t\
+    </goals>\n\t\t\t\t\t</execution>\n\t\t\t\t</executions>\n\t\t\t</plugin>\n\t\t</plugins>\n\t</build>\n\n</project>\n"
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n\txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n\t<modelVersion>4.0.0</modelVersion>\n\n\t<artifactId>account-service</artifactId>\n\t<version>1.0-SNAPSHOT</version>\n\
+    \t<packaging>jar</packaging>\n\n\t<name>account-service</name>\n\n\t<parent>\n\t\t<groupId>com.piggymetrics</groupId>\n\
+    \t\t<artifactId>piggymetrics</artifactId>\n\t\t<version>1.0-SNAPSHOT</version>\n\t</parent>\n\n\t<dependencies>\n\t\t\
+    <dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-oauth2</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-security</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-config</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-web</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-validation</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-openfeign</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-sleuth</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-data-mongodb</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-bus-amqp</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-netflix-hystrix</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-netflix-hystrix-stream</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-test</artifactId>\n\
+    \t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>de.flapdoodle.embed</groupId>\n\t\t\t<artifactId>de.flapdoodle.embed.mongo</artifactId>\n\
+    \t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>com.jayway.jsonpath</groupId>\n\t\t\t<artifactId>json-path</artifactId>\n\
+    \t\t\t<version>2.2.0</version>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\t</dependencies>\n\t\n\t<build>\n\t\t<plugins>\n\
+    \t\t\t<plugin>\n\t\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t\t<artifactId>spring-boot-maven-plugin</artifactId>\n\
+    \t\t\t\t<configuration>\n\t\t\t\t\t<finalName>account-service</finalName>\n\t\t\t\t</configuration>\n\t\t\t</plugin>\n\
+    \t\t\t<plugin>\n\t\t\t\t<groupId>org.jacoco</groupId>\n\t\t\t\t<artifactId>jacoco-maven-plugin</artifactId>\n\t\t\t\t\
+    <version>0.7.6.201602180812</version>\n\t\t\t\t<executions>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t\
+    <goal>prepare-agent</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<id>report</id>\n\
+    \t\t\t\t\t\t<phase>test</phase>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>report</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\
+    \t</execution>\n\t\t\t\t</executions>\n\t\t\t</plugin>\n\t\t</plugins>\n\t</build>\n\n</project>\n"
+  change: |
+    Write account-service/pom.xml to the pinned final text. It adds spring-boot-starter-validation with no version element, directly after spring-boot-starter-web. It removes the version element on de.flapdoodle.embed.mongo so the Boot 2.3.12 parent manages 2.2.0. Every other dependency and the jacoco plugin stay.
+  do_not:
+  - Change account-service Java sources
+  - Change spring-cloud-starter-oauth2, openfeign, eureka, hystrix, or config artifactIds
+  - Keep version 1.50.3 on de.flapdoodle.embed.mongo
+  compatibility: |
+    HTTP paths and Feign client interfaces in account-service stay byte-identical.
+  error_handling: |
+    If the validation artifact fails to resolve from the parent BOM, stop.
+  tests:
+  - mvn -B -pl account-service -am test
+  acceptance:
+  - account-service/pom.xml contains spring-boot-starter-validation
+  - account-service/pom.xml has no 1.50.3 version on embed mongo
+  - mvn -B -pl account-service -am test exits 0
+  rollback: |
+    git checkout -- account-service/pom.xml
+  why: |
+    Boot 2.3 no longer brings javax.validation transitively from spring-boot-starter-web, and embed mongo 1.50.3 overrides the parent-managed 2.2.0 client used by Boot 2.3 tests.
+  expected_result: |
+    account-service compiles and its tests pass on the new parent.
+  exact_commands:
+  - mvn -B -pl account-service -am test
+  edge_cases:
+  - Embedded Mongo download is blocked by the network.
+  invariants:
+  - ArtifactId account-service and parent version 1.0-SNAPSHOT stay.
+  - finalName account-service stays.
+  machine_verify:
+  - mvn -B -pl account-service -am test
+  human_verify:
+  - The validation dependency is present and the embed mongo version line is absent.
+  input_contract: |
+    STEP-001 root pom is saved.
+  output_contract: |
+    account-service/pom.xml matches the exact_snippet.
+  companion_required: false
+  creates_file: false
+- id: STEP-003
+  title: Add validation starter on auth-service and drop embed pin
+  depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-004
+  - REQ-005
+  decision_refs:
+  - D-003
+  - D-005
+  evidence_refs:
+  - R-004
+  - R-005
+  files:
+  - auth-service/pom.xml
+  exact_files:
+  - auth-service/pom.xml
+  existing_implementation: |
+    auth-service/pom.xml depends on spring-boot-starter-web without spring-boot-starter-validation, and pins de.flapdoodle.embed.mongo 1.50.3. UserController imports javax.validation.Valid.
+  line_anchor: |
+    auth-service/pom.xml dependencies
+  before_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n\txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n\t<modelVersion>4.0.0</modelVersion>\n\n\t<artifactId>auth-service</artifactId>\n\t<version>1.0-SNAPSHOT</version>\n\
+    \t<packaging>jar</packaging>\n\n\t<name>auth-service</name>\n\n\t<parent>\n\t\t<groupId>com.piggymetrics</groupId>\n\t\
+    \t<artifactId>piggymetrics</artifactId>\n\t\t<version>1.0-SNAPSHOT</version>\n\t</parent>\n\n\t<dependencies>\n\t\t<dependency>\n\
+    \t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-data-mongodb</artifactId>\n\t\
+    \t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-config</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-security</artifactId>\n\
+    \t\t</dependency>\n        <dependency>\n            <groupId>org.springframework.cloud</groupId>\n            <artifactId>spring-cloud-starter-oauth2</artifactId>\n\
+    \        </dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-web</artifactId>\n\
+    \t\t</dependency>\n        <dependency>\n            <groupId>org.springframework.cloud</groupId>\n            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n\
+    \        </dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-sleuth</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-test</artifactId>\n\
+    \t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>de.flapdoodle.embed</groupId>\n\t\t\t<artifactId>de.flapdoodle.embed.mongo</artifactId>\n\
+    \t\t\t<version>1.50.3</version>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>com.jayway.jsonpath</groupId>\n\
+    \t\t\t<artifactId>json-path</artifactId>\n\t\t\t<version>2.2.0</version>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\
+    \t</dependencies>\n\t\n\t<build>\n\t\t<plugins>\n\t\t\t<plugin>\n\t\t\t\t<groupId>org.springframework.boot</groupId>\n\
+    \t\t\t\t<artifactId>spring-boot-maven-plugin</artifactId>\n\t\t\t\t<configuration>\n\t\t\t\t\t<finalName>auth-service</finalName>\n\
+    \t\t\t\t</configuration>\n\t\t\t</plugin>\n\t\t\t<plugin>\n\t\t\t\t<groupId>org.jacoco</groupId>\n\t\t\t\t<artifactId>jacoco-maven-plugin</artifactId>\n\
+    \t\t\t\t<version>0.7.6.201602180812</version>\n\t\t\t\t<executions>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<goals>\n\t\t\t\
+    \t\t\t\t<goal>prepare-agent</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t\
+    <id>report</id>\n\t\t\t\t\t\t<phase>test</phase>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>report</goal>\n\t\t\t\t\t\t\
+    </goals>\n\t\t\t\t\t</execution>\n\t\t\t\t</executions>\n\t\t\t</plugin>\n\t\t</plugins>\n\t</build>\n</project>\n"
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n\txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n\t<modelVersion>4.0.0</modelVersion>\n\n\t<artifactId>auth-service</artifactId>\n\t<version>1.0-SNAPSHOT</version>\n\
+    \t<packaging>jar</packaging>\n\n\t<name>auth-service</name>\n\n\t<parent>\n\t\t<groupId>com.piggymetrics</groupId>\n\t\
+    \t<artifactId>piggymetrics</artifactId>\n\t\t<version>1.0-SNAPSHOT</version>\n\t</parent>\n\n\t<dependencies>\n\t\t<dependency>\n\
+    \t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-data-mongodb</artifactId>\n\t\
+    \t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-config</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-security</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-oauth2</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-web</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-validation</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-sleuth</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-test</artifactId>\n\
+    \t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>de.flapdoodle.embed</groupId>\n\t\t\t<artifactId>de.flapdoodle.embed.mongo</artifactId>\n\
+    \t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>com.jayway.jsonpath</groupId>\n\t\t\t<artifactId>json-path</artifactId>\n\
+    \t\t\t<version>2.2.0</version>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\t</dependencies>\n\t\n\t<build>\n\t\t<plugins>\n\
+    \t\t\t<plugin>\n\t\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t\t<artifactId>spring-boot-maven-plugin</artifactId>\n\
+    \t\t\t\t<configuration>\n\t\t\t\t\t<finalName>auth-service</finalName>\n\t\t\t\t</configuration>\n\t\t\t</plugin>\n\t\t\
+    \t<plugin>\n\t\t\t\t<groupId>org.jacoco</groupId>\n\t\t\t\t<artifactId>jacoco-maven-plugin</artifactId>\n\t\t\t\t<version>0.7.6.201602180812</version>\n\
+    \t\t\t\t<executions>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>prepare-agent</goal>\n\t\t\t\t\t\
+    \t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<id>report</id>\n\t\t\t\t\t\t<phase>test</phase>\n\
+    \t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>report</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t</executions>\n\
+    \t\t\t</plugin>\n\t\t</plugins>\n\t</build>\n</project>\n"
+  change: |
+    Write auth-service/pom.xml to the pinned final text. It adds spring-boot-starter-validation with no version element, directly after spring-boot-starter-web. It removes the version element on de.flapdoodle.embed.mongo. OAuth2, Eureka, Config, and Sleuth artifactIds stay.
+  do_not:
+  - Edit auth-service Java sources
+  - Remove spring-cloud-starter-oauth2
+  - Keep version 1.50.3 on de.flapdoodle.embed.mongo
+  compatibility: |
+    UserController paths /users and /users/current stay.
+  error_handling: |
+    If the validation artifact fails to resolve from the parent BOM, stop.
+  tests:
+  - mvn -B -pl auth-service -am test
+  acceptance:
+  - auth-service/pom.xml contains spring-boot-starter-validation
+  - auth-service/pom.xml has no 1.50.3 version on embed mongo
+  - mvn -B -pl auth-service -am test exits 0
+  rollback: |
+    git checkout -- auth-service/pom.xml
+  why: |
+    Auth-service uses javax.validation on UserController and the same embed-mongo pin that Boot 2.3 tests cannot use.
+  expected_result: |
+    auth-service compiles and its tests pass on the new parent.
+  exact_commands:
+  - mvn -B -pl auth-service -am test
+  edge_cases:
+  - Embedded Mongo download is blocked by the network.
+  invariants:
+  - ArtifactId auth-service stays.
+  - finalName auth-service stays.
+  machine_verify:
+  - mvn -B -pl auth-service -am test
+  human_verify:
+  - The validation dependency is present and the embed mongo version line is absent.
+  input_contract: |
+    STEP-001 root pom is saved.
+  output_contract: |
+    auth-service/pom.xml matches the exact_snippet.
+  companion_required: false
+  creates_file: false
+- id: STEP-004
+  title: Add validation starter on statistics-service and drop embed pin
+  depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-004
+  - REQ-005
+  decision_refs:
+  - D-003
+  - D-005
+  - D-006
+  evidence_refs:
+  - R-004
+  - R-005
+  - R-006
+  files:
+  - statistics-service/pom.xml
+  exact_files:
+  - statistics-service/pom.xml
+  existing_implementation: |
+    statistics-service/pom.xml depends on spring-boot-starter-web without spring-boot-starter-validation, pins de.flapdoodle.embed.mongo 1.50.3, and pins guava 19.0. StatisticsController imports javax.validation.Valid.
+  line_anchor: |
+    statistics-service/pom.xml dependencies
+  before_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n\txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n\t<modelVersion>4.0.0</modelVersion>\n\n\t<artifactId>statistics-service</artifactId>\n\t<version>1.0-SNAPSHOT</version>\n\
+    \t<packaging>jar</packaging>\n\n\t<name>statistics-service</name>\n\n\t<parent>\n\t\t<groupId>com.piggymetrics</groupId>\n\
+    \t\t<artifactId>piggymetrics</artifactId>\n\t\t<version>1.0-SNAPSHOT</version>\n\t</parent>\n\n\t<dependencies>\n\t\t\
+    <dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-security</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-config</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-oauth2</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-web</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-openfeign</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-sleuth</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-data-mongodb</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-bus-amqp</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-netflix-hystrix-stream</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>com.google.guava</groupId>\n\t\t\t<artifactId>guava</artifactId>\n\
+    \t\t\t<version>19.0</version>\n\t\t</dependency>\n\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\
+    \t\t\t<artifactId>spring-boot-starter-test</artifactId>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\
+    \t\t\t<groupId>de.flapdoodle.embed</groupId>\n\t\t\t<artifactId>de.flapdoodle.embed.mongo</artifactId>\n\t\t\t<version>1.50.3</version>\n\
+    \t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>com.jayway.jsonpath</groupId>\n\t\t\t<artifactId>json-path</artifactId>\n\
+    \t\t\t<version>2.2.0</version>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\t</dependencies>\n\t\n\t<build>\n\t\t<plugins>\n\
+    \t\t\t<plugin>\n\t\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t\t<artifactId>spring-boot-maven-plugin</artifactId>\n\
+    \t\t\t\t<configuration>\n\t\t\t\t\t<finalName>statistics-service</finalName>\n\t\t\t\t</configuration>\n\t\t\t</plugin>\n\
+    \t\t\t<plugin>\n\t\t\t\t<groupId>org.jacoco</groupId>\n\t\t\t\t<artifactId>jacoco-maven-plugin</artifactId>\n\t\t\t\t\
+    <version>0.7.6.201602180812</version>\n\t\t\t\t<executions>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t\
+    <goal>prepare-agent</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<id>report</id>\n\
+    \t\t\t\t\t\t<phase>test</phase>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>report</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\
+    \t</execution>\n\t\t\t\t</executions>\n\t\t\t</plugin>\n\t\t</plugins>\n\t</build>\n\n</project>\n"
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n\txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n\t<modelVersion>4.0.0</modelVersion>\n\n\t<artifactId>statistics-service</artifactId>\n\t<version>1.0-SNAPSHOT</version>\n\
+    \t<packaging>jar</packaging>\n\n\t<name>statistics-service</name>\n\n\t<parent>\n\t\t<groupId>com.piggymetrics</groupId>\n\
+    \t\t<artifactId>piggymetrics</artifactId>\n\t\t<version>1.0-SNAPSHOT</version>\n\t</parent>\n\n\t<dependencies>\n\t\t\
+    <dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-security</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-config</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-oauth2</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-web</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-validation</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-openfeign</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-sleuth</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-data-mongodb</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-bus-amqp</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-netflix-hystrix-stream</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>com.google.guava</groupId>\n\t\t\t<artifactId>guava</artifactId>\n\
+    \t\t\t<version>19.0</version>\n\t\t</dependency>\n\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\
+    \t\t\t<artifactId>spring-boot-starter-test</artifactId>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\
+    \t\t\t<groupId>de.flapdoodle.embed</groupId>\n\t\t\t<artifactId>de.flapdoodle.embed.mongo</artifactId>\n\t\t\t<scope>test</scope>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>com.jayway.jsonpath</groupId>\n\t\t\t<artifactId>json-path</artifactId>\n\
+    \t\t\t<version>2.2.0</version>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\t</dependencies>\n\t\n\t<build>\n\t\t<plugins>\n\
+    \t\t\t<plugin>\n\t\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t\t<artifactId>spring-boot-maven-plugin</artifactId>\n\
+    \t\t\t\t<configuration>\n\t\t\t\t\t<finalName>statistics-service</finalName>\n\t\t\t\t</configuration>\n\t\t\t</plugin>\n\
+    \t\t\t<plugin>\n\t\t\t\t<groupId>org.jacoco</groupId>\n\t\t\t\t<artifactId>jacoco-maven-plugin</artifactId>\n\t\t\t\t\
+    <version>0.7.6.201602180812</version>\n\t\t\t\t<executions>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t\
+    <goal>prepare-agent</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<id>report</id>\n\
+    \t\t\t\t\t\t<phase>test</phase>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>report</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\
+    \t</execution>\n\t\t\t\t</executions>\n\t\t\t</plugin>\n\t\t</plugins>\n\t</build>\n\n</project>\n"
+  change: |
+    Write statistics-service/pom.xml to the pinned final text. It adds spring-boot-starter-validation with no version element, directly after spring-boot-starter-web. It removes the version element on de.flapdoodle.embed.mongo. Guava 19.0 stays pinned.
+  do_not:
+  - Remove guava 19.0
+  - Remove spring-cloud-starter-openfeign or spring-cloud-netflix-hystrix-stream
+  - Keep version 1.50.3 on de.flapdoodle.embed.mongo
+  compatibility: |
+    StatisticsController mappings /current and /{accountName} stay.
+  error_handling: |
+    If the validation artifact fails to resolve from the parent BOM, stop.
+  tests:
+  - mvn -B -pl statistics-service -am test -DskipTests
+  acceptance:
+  - statistics-service/pom.xml contains spring-boot-starter-validation
+  - statistics-service/pom.xml has no 1.50.3 version on embed mongo
+  - guava version 19.0 remains
+  rollback: |
+    git checkout -- statistics-service/pom.xml
+  why: |
+    Statistics-service uses javax.validation and the embed-mongo pin. It stays in the reactor even though P2.T1 omitted its name, because the root build fails if it does not compile.
+  expected_result: |
+    statistics-service/pom.xml is ready for the MongoCustomConversions source edit and the module tests.
+  exact_commands:
+  - mvn -B -pl statistics-service -am test -DskipTests
+  edge_cases:
+  - Full tests wait until STEP-006 because the current Application class does not compile on Spring Data MongoDB 3.
+  invariants:
+  - finalName statistics-service stays.
+  machine_verify:
+  - mvn -B -pl statistics-service -am test -DskipTests
+  human_verify:
+  - The validation dependency is present and the embed mongo version line is absent.
+  input_contract: |
+    STEP-001 root pom is saved.
+  output_contract: |
+    statistics-service/pom.xml matches the exact_snippet.
+  companion_required: false
+  creates_file: false
+- id: STEP-005
+  title: Add validation starter on notification-service and drop embed pin
+  depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-004
+  - REQ-005
+  decision_refs:
+  - D-003
+  - D-005
+  - D-006
+  evidence_refs:
+  - R-004
+  - R-005
+  - R-006
+  files:
+  - notification-service/pom.xml
+  exact_files:
+  - notification-service/pom.xml
+  existing_implementation: |
+    notification-service/pom.xml version 1.0.0-SNAPSHOT depends on spring-boot-starter-web without spring-boot-starter-validation, and pins de.flapdoodle.embed.mongo 1.50.3. RecipientController imports javax.validation.Valid.
+  line_anchor: |
+    notification-service/pom.xml dependencies
+  before_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n\txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n\t<modelVersion>4.0.0</modelVersion>\n\n\t<artifactId>notification-service</artifactId>\n\t<version>1.0.0-SNAPSHOT</version>\n\
+    \t<packaging>jar</packaging>\n\n\t<name>notification-service</name>\n\n\t<parent>\n\t\t<groupId>com.piggymetrics</groupId>\n\
+    \t\t<artifactId>piggymetrics</artifactId>\n\t\t<version>1.0-SNAPSHOT</version>\n\t</parent>\n\n\t<dependencies>\n\t\t\
+    <dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-oauth2</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-security</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-config</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-web</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-openfeign</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-sleuth</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-data-mongodb</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-bus-amqp</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-netflix-hystrix-stream</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-mail</artifactId>\n\
+    \t\t</dependency>\n\n\t\t<dependency>\n\t\t\t<groupId>de.flapdoodle.embed</groupId>\n\t\t\t<artifactId>de.flapdoodle.embed.mongo</artifactId>\n\
+    \t\t\t<version>1.50.3</version>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>com.jayway.jsonpath</groupId>\n\
+    \t\t\t<artifactId>json-path</artifactId>\n\t\t\t<version>2.2.0</version>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\
+    \t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-test</artifactId>\n\
+    \t\t\t<scope>test</scope>\n\t\t</dependency>\n\t</dependencies>\n\n\t<build>\n\t\t<plugins>\n\t\t\t<plugin>\n\t\t\t\t\
+    <groupId>org.springframework.boot</groupId>\n\t\t\t\t<artifactId>spring-boot-maven-plugin</artifactId>\n\t\t\t\t<configuration>\n\
+    \t\t\t\t\t<finalName>notification-service</finalName>\n\t\t\t\t</configuration>\n\t\t\t</plugin>\n\t\t\t<plugin>\n\t\t\
+    \t\t<groupId>org.jacoco</groupId>\n\t\t\t\t<artifactId>jacoco-maven-plugin</artifactId>\n\t\t\t\t<version>0.7.6.201602180812</version>\n\
+    \t\t\t\t<executions>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>prepare-agent</goal>\n\t\t\t\t\t\
+    \t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<id>report</id>\n\t\t\t\t\t\t<phase>test</phase>\n\
+    \t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>report</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t</executions>\n\
+    \t\t\t</plugin>\n\t\t</plugins>\n\t</build>\n\n</project>\n"
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n\txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n\t<modelVersion>4.0.0</modelVersion>\n\n\t<artifactId>notification-service</artifactId>\n\t<version>1.0.0-SNAPSHOT</version>\n\
+    \t<packaging>jar</packaging>\n\n\t<name>notification-service</name>\n\n\t<parent>\n\t\t<groupId>com.piggymetrics</groupId>\n\
+    \t\t<artifactId>piggymetrics</artifactId>\n\t\t<version>1.0-SNAPSHOT</version>\n\t</parent>\n\n\t<dependencies>\n\t\t\
+    <dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-oauth2</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-security</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-config</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-web</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-validation</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-openfeign</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-sleuth</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-data-mongodb</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-bus-amqp</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-netflix-hystrix-stream</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-mail</artifactId>\n\
+    \t\t</dependency>\n\n\t\t<dependency>\n\t\t\t<groupId>de.flapdoodle.embed</groupId>\n\t\t\t<artifactId>de.flapdoodle.embed.mongo</artifactId>\n\
+    \t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>com.jayway.jsonpath</groupId>\n\t\t\t<artifactId>json-path</artifactId>\n\
+    \t\t\t<version>2.2.0</version>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\
+    \t\t\t<artifactId>spring-boot-starter-test</artifactId>\n\t\t\t<scope>test</scope>\n\t\t</dependency>\n\t</dependencies>\n\
+    \n\t<build>\n\t\t<plugins>\n\t\t\t<plugin>\n\t\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t\t<artifactId>spring-boot-maven-plugin</artifactId>\n\
+    \t\t\t\t<configuration>\n\t\t\t\t\t<finalName>notification-service</finalName>\n\t\t\t\t</configuration>\n\t\t\t</plugin>\n\
+    \t\t\t<plugin>\n\t\t\t\t<groupId>org.jacoco</groupId>\n\t\t\t\t<artifactId>jacoco-maven-plugin</artifactId>\n\t\t\t\t\
+    <version>0.7.6.201602180812</version>\n\t\t\t\t<executions>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t\
+    <goal>prepare-agent</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<id>report</id>\n\
+    \t\t\t\t\t\t<phase>test</phase>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>report</goal>\n\t\t\t\t\t\t</goals>\n\t\t\t\t\
+    \t</execution>\n\t\t\t\t</executions>\n\t\t\t</plugin>\n\t\t</plugins>\n\t</build>\n\n</project>\n"
+  change: |
+    Write notification-service/pom.xml to the pinned final text. It adds spring-boot-starter-validation with no version element, directly after spring-boot-starter-web. It removes the version element on de.flapdoodle.embed.mongo. The module version stays 1.0.0-SNAPSHOT.
+  do_not:
+  - Change the module version away from 1.0.0-SNAPSHOT
+  - Remove spring-boot-starter-mail
+  - Keep version 1.50.3 on de.flapdoodle.embed.mongo
+  compatibility: |
+    RecipientController mappings /recipients/current stay. Cron jobs stay in NotificationServiceImpl.
+  error_handling: |
+    If the validation artifact fails to resolve from the parent BOM, stop.
+  tests:
+  - mvn -B -pl notification-service -am test -DskipTests
+  acceptance:
+  - notification-service/pom.xml contains spring-boot-starter-validation
+  - notification-service/pom.xml has no 1.50.3 version on embed mongo
+  - module version remains 1.0.0-SNAPSHOT
+  rollback: |
+    git checkout -- notification-service/pom.xml
+  why: |
+    Notification-service uses javax.validation and the embed-mongo pin, and its Application class needs the companion source edit in STEP-007.
+  expected_result: |
+    notification-service/pom.xml is ready for the MongoCustomConversions source edit and the module tests.
+  exact_commands:
+  - mvn -B -pl notification-service -am test -DskipTests
+  edge_cases:
+  - Full tests wait until STEP-007 because the current Application class does not compile on Spring Data MongoDB 3.
+  invariants:
+  - finalName notification-service stays.
+  machine_verify:
+  - mvn -B -pl notification-service -am test -DskipTests
+  human_verify:
+  - The validation dependency is present and the embed mongo version line is absent.
+  input_contract: |
+    STEP-001 root pom is saved.
+  output_contract: |
+    notification-service/pom.xml matches the exact_snippet.
+  companion_required: false
+  creates_file: false
+- id: STEP-006
+  title: Point statistics conversions at MongoCustomConversions
+  depends_on:
+  - STEP-004
+  requirement_refs:
+  - REQ-003
+  - REQ-004
+  decision_refs:
+  - D-004
+  - D-006
+  evidence_refs:
+  - R-006
+  - R-007
+  files:
+  - statistics-service/src/main/java/com/piggymetrics/statistics/StatisticsApplication.java
+  exact_files:
+  - statistics-service/src/main/java/com/piggymetrics/statistics/StatisticsApplication.java
+  existing_implementation: |
+    StatisticsApplication.CustomConversionsConfig.customConversions returns new CustomConversions(Arrays.asList(new DataPointIdReaderConverter(), new DataPointIdWriterConverter())) using org.springframework.data.mongodb.core.convert.CustomConversions.
+  line_anchor: |
+    statistics-service/src/main/java/com/piggymetrics/statistics/StatisticsApplication.java:14 and lines 33-39
+  before_snippet: "package com.piggymetrics.statistics;\n\nimport com.piggymetrics.statistics.repository.converter.DataPointIdReaderConverter;\n\
+    import com.piggymetrics.statistics.repository.converter.DataPointIdWriterConverter;\nimport com.piggymetrics.statistics.service.security.CustomUserInfoTokenServices;\n\
+    import org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.boot.SpringApplication;\nimport\
+    \ org.springframework.boot.autoconfigure.SpringBootApplication;\nimport org.springframework.boot.autoconfigure.security.oauth2.resource.ResourceServerProperties;\n\
+    import org.springframework.cloud.client.discovery.EnableDiscoveryClient;\nimport org.springframework.cloud.openfeign.EnableFeignClients;\n\
+    import org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\nimport\
+    \ org.springframework.data.mongodb.core.convert.CustomConversions;\nimport org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;\n\
+    import org.springframework.security.oauth2.config.annotation.web.configuration.EnableOAuth2Client;\nimport org.springframework.security.oauth2.provider.token.ResourceServerTokenServices;\n\
+    \nimport java.util.Arrays;\n\n@SpringBootApplication\n@EnableDiscoveryClient\n@EnableOAuth2Client\n@EnableFeignClients\n\
+    @EnableGlobalMethodSecurity(prePostEnabled = true)\npublic class StatisticsApplication {\n\n\tpublic static void main(String[]\
+    \ args) {\n\t\tSpringApplication.run(StatisticsApplication.class, args);\n\t}\n\n\t@Configuration\n\tstatic class CustomConversionsConfig\
+    \ {\n\n\t\t@Bean\n\t\tpublic CustomConversions customConversions() {\n\t\t\treturn new CustomConversions(Arrays.asList(new\
+    \ DataPointIdReaderConverter(),\n\t\t\t\t\tnew DataPointIdWriterConverter()));\n\t\t}\n\t}\n}\n"
+  exact_snippet: "package com.piggymetrics.statistics;\n\nimport com.piggymetrics.statistics.repository.converter.DataPointIdReaderConverter;\n\
+    import com.piggymetrics.statistics.repository.converter.DataPointIdWriterConverter;\nimport com.piggymetrics.statistics.service.security.CustomUserInfoTokenServices;\n\
+    import org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.boot.SpringApplication;\nimport\
+    \ org.springframework.boot.autoconfigure.SpringBootApplication;\nimport org.springframework.boot.autoconfigure.security.oauth2.resource.ResourceServerProperties;\n\
+    import org.springframework.cloud.client.discovery.EnableDiscoveryClient;\nimport org.springframework.cloud.openfeign.EnableFeignClients;\n\
+    import org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\nimport\
+    \ org.springframework.data.mongodb.core.convert.MongoCustomConversions;\nimport org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;\n\
+    import org.springframework.security.oauth2.config.annotation.web.configuration.EnableOAuth2Client;\nimport org.springframework.security.oauth2.provider.token.ResourceServerTokenServices;\n\
+    \nimport java.util.Arrays;\n\n@SpringBootApplication\n@EnableDiscoveryClient\n@EnableOAuth2Client\n@EnableFeignClients\n\
+    @EnableGlobalMethodSecurity(prePostEnabled = true)\npublic class StatisticsApplication {\n\n\tpublic static void main(String[]\
+    \ args) {\n\t\tSpringApplication.run(StatisticsApplication.class, args);\n\t}\n\n\t@Configuration\n\tstatic class CustomConversionsConfig\
+    \ {\n\n\t\t@Bean\n\t\tpublic MongoCustomConversions customConversions() {\n\t\t\treturn new MongoCustomConversions(Arrays.asList(new\
+    \ DataPointIdReaderConverter(),\n\t\t\t\t\tnew DataPointIdWriterConverter()));\n\t\t}\n\t}\n}\n"
+  change: |
+    Write StatisticsApplication.java to the pinned final text. The import is MongoCustomConversions. The bean method returns MongoCustomConversions and constructs MongoCustomConversions with the same DataPointIdReaderConverter and DataPointIdWriterConverter list. Annotations on the class stay.
+  do_not:
+  - Edit StatisticsController or ExchangeRatesClient
+  - Edit converter classes
+  - Remove @EnableFeignClients, @EnableDiscoveryClient, or @EnableOAuth2Client
+  compatibility: |
+    Bean name customConversions stays. Converter class names stay.
+  error_handling: |
+    If MongoCustomConversions is unresolved, the parent is not Boot 2.3.12. Stop and fix STEP-001.
+  tests:
+  - mvn -B -pl statistics-service -am test
+  acceptance:
+  - StatisticsApplication.java matches the exact_snippet
+  - mvn -B -pl statistics-service -am test exits 0
+  rollback: |
+    git checkout -- statistics-service/src/main/java/com/piggymetrics/statistics/StatisticsApplication.java
+  why: |
+    Spring Data MongoDB 3, pulled by Boot 2.3.12, constructs store conversions through MongoCustomConversions. The Finchley-era CustomConversions(List) call is the compile break in this class.
+  expected_result: |
+    statistics-service tests pass with the Mongo custom conversions bean on the Boot 2.3 stack.
+  exact_commands:
+  - mvn -B -pl statistics-service -am test
+  edge_cases:
+  - A converter class fails to implement Converter after the type change. They already implement Converter and stay untouched.
+  invariants:
+  - Class name StatisticsApplication stays.
+  - DataPointIdReaderConverter and DataPointIdWriterConverter stay in the list in that order.
+  machine_verify:
+  - mvn -B -pl statistics-service -am test
+  human_verify:
+  - The file imports MongoCustomConversions and the bean return type is MongoCustomConversions.
+  input_contract: |
+    STEP-004 pom is saved.
+  output_contract: |
+    StatisticsApplication.java matches the exact_snippet.
+  companion_required: false
+  creates_file: false
+- id: STEP-007
+  title: Point notification conversions at MongoCustomConversions
+  depends_on:
+  - STEP-005
+  requirement_refs:
+  - REQ-003
+  - REQ-004
+  decision_refs:
+  - D-004
+  - D-006
+  evidence_refs:
+  - R-006
+  - R-007
+  files:
+  - notification-service/src/main/java/com/piggymetrics/notification/NotificationServiceApplication.java
+  exact_files:
+  - notification-service/src/main/java/com/piggymetrics/notification/NotificationServiceApplication.java
+  existing_implementation: |
+    NotificationServiceApplication.CustomConversionsConfig.customConversions returns new CustomConversions(Arrays.asList(new FrequencyReaderConverter(), new FrequencyWriterConverter())) using org.springframework.data.mongodb.core.convert.CustomConversions.
+  line_anchor: |
+    notification-service/src/main/java/com/piggymetrics/notification/NotificationServiceApplication.java:11 and lines 30-37
+  before_snippet: "package com.piggymetrics.notification;\n\nimport com.piggymetrics.notification.repository.converter.FrequencyReaderConverter;\n\
+    import com.piggymetrics.notification.repository.converter.FrequencyWriterConverter;\nimport org.springframework.boot.SpringApplication;\n\
+    import org.springframework.boot.autoconfigure.SpringBootApplication;\nimport org.springframework.cloud.client.discovery.EnableDiscoveryClient;\n\
+    import org.springframework.cloud.openfeign.EnableFeignClients;\nimport org.springframework.context.annotation.Bean;\n\
+    import org.springframework.context.annotation.Configuration;\nimport org.springframework.data.mongodb.core.convert.CustomConversions;\n\
+    import org.springframework.scheduling.annotation.EnableScheduling;\nimport org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;\n\
+    import org.springframework.security.oauth2.config.annotation.web.configuration.EnableOAuth2Client;\n\nimport java.util.Arrays;\n\
+    \n@SpringBootApplication\n@EnableDiscoveryClient\n@EnableOAuth2Client\n@EnableFeignClients\n@EnableGlobalMethodSecurity(prePostEnabled\
+    \ = true)\n@EnableScheduling\npublic class NotificationServiceApplication {\n\n\tpublic static void main(String[] args)\
+    \ {\n\t\tSpringApplication.run(NotificationServiceApplication.class, args);\n\t}\n\n\t@Configuration\n\tstatic class CustomConversionsConfig\
+    \ {\n\n\t\t@Bean\n\t\tpublic CustomConversions customConversions() {\n\t\t\treturn new CustomConversions(Arrays.asList(new\
+    \ FrequencyReaderConverter(),\n\t\t\t\t\tnew FrequencyWriterConverter()));\n\t\t}\n\t}\n}\n"
+  exact_snippet: "package com.piggymetrics.notification;\n\nimport com.piggymetrics.notification.repository.converter.FrequencyReaderConverter;\n\
+    import com.piggymetrics.notification.repository.converter.FrequencyWriterConverter;\nimport org.springframework.boot.SpringApplication;\n\
+    import org.springframework.boot.autoconfigure.SpringBootApplication;\nimport org.springframework.cloud.client.discovery.EnableDiscoveryClient;\n\
+    import org.springframework.cloud.openfeign.EnableFeignClients;\nimport org.springframework.context.annotation.Bean;\n\
+    import org.springframework.context.annotation.Configuration;\nimport org.springframework.data.mongodb.core.convert.MongoCustomConversions;\n\
+    import org.springframework.scheduling.annotation.EnableScheduling;\nimport org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;\n\
+    import org.springframework.security.oauth2.config.annotation.web.configuration.EnableOAuth2Client;\n\nimport java.util.Arrays;\n\
+    \n@SpringBootApplication\n@EnableDiscoveryClient\n@EnableOAuth2Client\n@EnableFeignClients\n@EnableGlobalMethodSecurity(prePostEnabled\
+    \ = true)\n@EnableScheduling\npublic class NotificationServiceApplication {\n\n\tpublic static void main(String[] args)\
+    \ {\n\t\tSpringApplication.run(NotificationServiceApplication.class, args);\n\t}\n\n\t@Configuration\n\tstatic class CustomConversionsConfig\
+    \ {\n\n\t\t@Bean\n\t\tpublic MongoCustomConversions customConversions() {\n\t\t\treturn new MongoCustomConversions(Arrays.asList(new\
+    \ FrequencyReaderConverter(),\n\t\t\t\t\tnew FrequencyWriterConverter()));\n\t\t}\n\t}\n}\n"
+  change: |
+    Write NotificationServiceApplication.java to the pinned final text. The import is MongoCustomConversions. The bean method returns MongoCustomConversions and constructs MongoCustomConversions with the same FrequencyReaderConverter and FrequencyWriterConverter list. @EnableScheduling stays.
+  do_not:
+  - Edit RecipientController or AccountServiceClient
+  - Edit NotificationServiceImpl cron methods
+  - Remove @EnableScheduling
+  compatibility: |
+    Bean name customConversions stays. Scheduled cron properties stay.
+  error_handling: |
+    If MongoCustomConversions is unresolved, the parent is not Boot 2.3.12. Stop and fix STEP-001.
+  tests:
+  - mvn -B -pl notification-service -am test
+  acceptance:
+  - NotificationServiceApplication.java matches the exact_snippet
+  - mvn -B -pl notification-service -am test exits 0
+  rollback: |
+    git checkout -- notification-service/src/main/java/com/piggymetrics/notification/NotificationServiceApplication.java
+  why: |
+    This is the only other CustomConversions(List) construction in the tree, and it breaks on the same Spring Data MongoDB 3 API.
+  expected_result: |
+    notification-service tests pass with the Mongo custom conversions bean on the Boot 2.3 stack.
+  exact_commands:
+  - mvn -B -pl notification-service -am test
+  edge_cases:
+  - Frequency converters fail to compile. They stay untouched because they already implement Converter.
+  invariants:
+  - Class name NotificationServiceApplication stays.
+  - FrequencyReaderConverter then FrequencyWriterConverter stay in that order.
+  machine_verify:
+  - mvn -B -pl notification-service -am test
+  human_verify:
+  - The file imports MongoCustomConversions and the bean return type is MongoCustomConversions.
+  input_contract: |
+    STEP-005 pom is saved.
+  output_contract: |
+    NotificationServiceApplication.java matches the exact_snippet.
+  companion_required: false
+  creates_file: false
+- id: STEP-008
+  title: Run root Maven tests and Compose smoke checks
+  depends_on:
+  - STEP-002
+  - STEP-003
+  - STEP-006
+  - STEP-007
+  requirement_refs:
+  - REQ-005
+  - REQ-007
+  - REQ-009
+  decision_refs:
+  - D-007
+  evidence_refs:
+  - R-001
+  - R-008
+  - R-009
+  files:
+  - config/Dockerfile
+  exact_files:
+  - config/Dockerfile
+  existing_implementation: |
+    README Let's try it out: mvn package, then docker-compose -f docker-compose.yml -f docker-compose.dev.yml up. .travis.yml has language java and jdk oraclejdk8 and no script override. config/Dockerfile HEALTHCHECK curls http://localhost:8888/actuator/health. docker-compose.dev.yml sets build: for each service and exposes ports. docker-compose.yml image names are sqshq/piggymetrics-*.
+  line_anchor: |
+    README.md development mode command and .travis.yml lines 1-8
+  change: |
+    Run the pinned commands from the repository root on walk-17-oct-modernization. Do not edit Dockerfiles, Compose files, Travis, gateway.yml, or controller sources. Root mvn -B test must exit 0, which covers account-service, auth-service, config, gateway, monitoring, notification-service, registry, statistics-service, and turbine-stream-service. Package with tests skipped, then start the dev overlay. Confirm config health, the Eureka port, and the gateway port.
+  do_not:
+  - Edit .travis.yml
+  - Edit docker-compose.yml or docker-compose.dev.yml
+  - Run docker-compose -f docker-compose.yml up in the same session as the dev overlay
+  - Change gateway route paths
+  compatibility: |
+    Production compose file stays valid. Dev overlay builds local modules.
+  error_handling: |
+    If mvn -B test fails, stop and fix the failing module. Do not skip tests to go green.
+  tests:
+  - mvn -B test
+  - docker-compose -f docker-compose.yml config
+  - curl -fsS http://127.0.0.1:8888/actuator/health
+  acceptance:
+  - mvn -B test exits 0
+  - git diff --exit-code -- .travis.yml exits 0
+  - config health URL returns a body that contains UP
+  - http://127.0.0.1:8761/ returns a body that contains Eureka
+  rollback: |
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml down
+  why: |
+    P3.T1 requires the dev and deployment Compose definitions plus the existing Travis workflow, and the spec requires Maven verification from the root pom.
+  expected_result: |
+    The reactor tests pass and the locally built stack answers on config, Eureka, and the gateway.
+  exact_commands:
+  - mvn -B test
+  - git diff --exit-code -- .travis.yml
+  - git diff --exit-code -- docker-compose.yml docker-compose.dev.yml
+  - git diff --exit-code -- config/src/main/resources/shared/gateway.yml
+  - mvn -B package -DskipTests
+  - docker-compose -f docker-compose.yml config
+  - docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+  - curl -fsS http://127.0.0.1:8888/actuator/health
+  - curl -fsS http://127.0.0.1:8761/
+  - curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1/
+  edge_cases:
+  - Port 80, 8761, or 8888 is already bound.
+  - The config image lacks curl so its Dockerfile HEALTHCHECK stays red while the host curl to port 8888 still returns UP.
+  invariants:
+  - .travis.yml bytes stay identical.
+  - gateway.yml route paths /uaa/** /accounts/** /statistics/** /notifications/** stay identical.
+  machine_verify:
+  - mvn -B test
+  - docker-compose -f docker-compose.yml config
+  human_verify:
+  - curl -fsS http://127.0.0.1:8888/actuator/health prints a JSON body containing UP.
+  - curl -fsS http://127.0.0.1:8761/ prints a page containing Eureka.
+  - curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1/ prints 200.
+  input_contract: |
+    STEP-002, STEP-003, STEP-006, and STEP-007 are saved.
+  output_contract: |
+    Root test exit 0 and the three smoke URLs respond.
+  companion_required: false
+  creates_file: false

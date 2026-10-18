@@ -1,0 +1,31 @@
+modules:
+- config
+- monitoring
+- registry
+- gateway
+- auth-service
+- account-service
+- statistics-service
+- notification-service
+- turbine-stream-service
+platform_annotations:
+  registry: '@EnableEurekaServer'
+  gateway: '@EnableZuulProxy'
+  monitoring: '@EnableHystrixDashboard'
+  turbine-stream-service: '@EnableTurbineStream'
+  config: '@EnableConfigServer'
+  account-service: '@EnableFeignClients @EnableCircuitBreaker @EnableOAuth2Client'
+  auth-service: '@EnableResourceServer'
+validation_imports:
+- account-service
+- auth-service
+- statistics-service
+- notification-service
+custom_conversions:
+- statistics-service/src/main/java/com/piggymetrics/statistics/StatisticsApplication.java
+- notification-service/src/main/java/com/piggymetrics/notification/NotificationServiceApplication.java
+embed_mongo_pin: 1.50.3 in the four data services
+commands_proven:
+- mvn package
+- docker-compose up
+- docker-compose -f docker-compose.yml -f docker-compose.dev.yml up

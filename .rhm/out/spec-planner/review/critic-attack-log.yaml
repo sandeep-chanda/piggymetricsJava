@@ -1,0 +1,69 @@
+vectors:
+- vector: wrong_paths
+  checked: true
+  finding: clear
+  evidence: Module paths in the plan match pom.xml modules and the Application classes that exist on disk.
+- vector: missing_scripts
+  checked: true
+  finding: clear
+  evidence: Commands are mvn, docker-compose, curl, and git diff, all present in README or .travis.yml.
+- vector: scope_creep
+  checked: true
+  finding: clear
+  evidence: Java edits are limited to the two CustomConversions beans. No gateway replacement is introduced.
+- vector: weak_evidence
+  checked: true
+  finding: clear
+  evidence: Boot and Cloud versions are taken from the Hoxton.SR12 docs and the published BOMs.
+- vector: missing_alternatives
+  checked: true
+  finding: clear
+  evidence: D-001 through D-007 each record a rejected alternative.
+- vector: dag_order
+  checked: true
+  finding: clear
+  evidence: Manifest edits precede the conversion beans, and STEP-008 waits on both testable modules.
+- vector: residual_entropy
+  checked: true
+  finding: clear
+  evidence: critical_unresolved_count is 0. Keep versus Replace is closed by D-002.
+- vector: a11y_or_security_or_ops
+  checked: true
+  finding: clear
+  evidence: OAuth artifactIds stay. No new public route is added. Compose port bindings stay as the files
+    already declare them.
+- vector: test_gaps
+  checked: true
+  finding: clear
+  evidence: Each data service has an mvn -pl test command, and STEP-008 runs mvn -B test for the reactor.
+- vector: spec_plan_contradiction
+  checked: true
+  finding: clear
+  evidence: The Replace lines are rejected in D-002 because the spec also forbids a rewrite and lists
+    MUST-reuse annotations.
+- vector: soft_shape_variance
+  checked: true
+  finding: clear
+  evidence: Each product step has one exact_snippet and one branch name.
+- vector: instructional_pin
+  checked: true
+  finding: clear
+  evidence: exact_snippet values are full final file bodies.
+- vector: reference_trace
+  checked: true
+  finding: clear
+  evidence: Repository search for CustomConversions hits only StatisticsApplication and NotificationServiceApplication,
+    and both are pinned.
+- vector: constraint_risk
+  checked: true
+  finding: clear
+  evidence: No user-visible copy length changes. Gateway route table is unchanged, so layout and path
+    constraints stay.
+- vector: imagination_gap
+  checked: true
+  finding: clear
+  evidence: Final pom and Java bodies are pinned. The coding agent does not choose versions.
+- vector: thin_dag
+  checked: true
+  finding: clear
+  evidence: Each node carries summary_spec, exact_files, verification, and acceptance.

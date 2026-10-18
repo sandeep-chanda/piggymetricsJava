@@ -1,0 +1,13 @@
+id: R-009
+question: What does the existing Travis workflow run?
+conclusion: .travis.yml sets dist trusty, services docker, language java, jdk oraclejdk8, and after_success
+  docker builds. It has no script key, so Travis uses its Java default test invocation. The file must
+  stay unchanged.
+evidence:
+- repository: target
+  file: .travis.yml
+  location: lines 1-17
+  note: jdk oraclejdk8 and no script override.
+confidence: high
+implication: Verification includes git diff --exit-code -- .travis.yml.
+conflicts_with: []

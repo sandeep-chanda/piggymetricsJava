@@ -1,0 +1,7 @@
+task_id: walk-17-oct
+commands:
+- mvn -B -pl account-service -am test
+- mvn -B -pl auth-service -am test
+- mvn -B -pl statistics-service -am test
+- mvn -B -pl notification-service -am test
+- mvn -B test

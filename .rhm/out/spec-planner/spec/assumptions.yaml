@@ -1,0 +1,4 @@
+assumptions:
+- id: A-001
+  text: Java stays at 1.8 because Travis pins oraclejdk8 and every Dockerfile uses java:8-jre.
+  confidence: high
