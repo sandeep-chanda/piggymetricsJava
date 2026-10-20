@@ -31,6 +31,6 @@ spring:
       port: 0
 
 rates:
-  url: https://api.exchangeratesapi.io
+  url: https://api.frankfurter.app
 
 de.flapdoodle.mongodb.embedded.version: 5.0.12
