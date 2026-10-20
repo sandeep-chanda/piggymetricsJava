@@ -11,6 +11,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import java.time.LocalDate;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
 @RunWith(SpringRunner.class)
@@ -25,13 +26,12 @@ public class ExchangeRatesClientTest {
 
 		ExchangeRatesContainer container = client.getRates(Currency.getBase());
 
-		assertEquals(container.getDate(), LocalDate.now());
-		assertEquals(container.getBase(), Currency.getBase());
+		assertEquals(LocalDate.now(), container.getDate());
+		assertEquals(Currency.getBase(), container.getBase());
 
 		assertNotNull(container.getRates());
-		assertNotNull(container.getRates().get(Currency.USD.name()));
+		assertFalse(container.getRates().isEmpty());
 		assertNotNull(container.getRates().get(Currency.EUR.name()));
-		assertNotNull(container.getRates().get(Currency.RUB.name()));
 	}
 
 	@Test
@@ -40,8 +40,8 @@ public class ExchangeRatesClientTest {
 		Currency requestedCurrency = Currency.EUR;
 		ExchangeRatesContainer container = client.getRates(Currency.getBase());
 
-		assertEquals(container.getDate(), LocalDate.now());
-		assertEquals(container.getBase(), Currency.getBase());
+		assertEquals(LocalDate.now(), container.getDate());
+		assertEquals(Currency.getBase(), container.getBase());
 
 		assertNotNull(container.getRates());
 		assertNotNull(container.getRates().get(requestedCurrency.name()));
