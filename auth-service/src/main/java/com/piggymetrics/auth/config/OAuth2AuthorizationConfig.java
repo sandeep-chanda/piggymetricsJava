@@ -68,11 +68,11 @@ public class OAuth2AuthorizationConfig {
 				.build();
 
 		RegisteredClient accountService = serviceClient("account-service",
-				env.getProperty("ACCOUNT_SERVICE_PASSWORD", "password"));
+				env.getProperty("ACCOUNT_SERVICE_PASSWORD", "account-service-password"));
 		RegisteredClient statisticsService = serviceClient("statistics-service",
-				env.getProperty("STATISTICS_SERVICE_PASSWORD", "password"));
+				env.getProperty("STATISTICS_SERVICE_PASSWORD", "statistics-service-password"));
 		RegisteredClient notificationService = serviceClient("notification-service",
-				env.getProperty("NOTIFICATION_SERVICE_PASSWORD", "password"));
+				env.getProperty("NOTIFICATION_SERVICE_PASSWORD", "notification-service-password"));
 
 		return new InMemoryRegisteredClientRepository(browser, accountService, statisticsService, notificationService);
 	}
