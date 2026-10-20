@@ -20,7 +20,7 @@ import java.util.Properties;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.initMocks;
+import static org.mockito.MockitoAnnotations.openMocks;
 
 public class EmailServiceImplTest {
 
@@ -38,7 +38,7 @@ public class EmailServiceImplTest {
 
 	@Before
 	public void setup() {
-		initMocks(this);
+		openMocks(this);
 		when(mailSender.createMimeMessage())
 				.thenReturn(new MimeMessage(Session.getDefaultInstance(new Properties())));
 	}

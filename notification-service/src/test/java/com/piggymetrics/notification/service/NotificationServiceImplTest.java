@@ -13,7 +13,7 @@ import jakarta.mail.MessagingException;
 import java.io.IOException;
 
 import static org.mockito.Mockito.*;
-import static org.mockito.MockitoAnnotations.initMocks;
+import static org.mockito.MockitoAnnotations.openMocks;
 
 public class NotificationServiceImplTest {
 
@@ -31,7 +31,7 @@ public class NotificationServiceImplTest {
 
 	@Before
 	public void setup() {
-		initMocks(this);
+		openMocks(this);
 	}
 
 	@Test

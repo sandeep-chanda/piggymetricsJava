@@ -20,7 +20,7 @@ import java.math.BigDecimal;
 import java.util.Date;
 
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.initMocks;
+import static org.mockito.MockitoAnnotations.openMocks;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -41,7 +41,7 @@ public class AccountControllerTest {
 
 	@Before
 	public void setup() {
-		initMocks(this);
+		openMocks(this);
 		this.mockMvc = MockMvcBuilders.standaloneSetup(accountController).build();
 	}
 

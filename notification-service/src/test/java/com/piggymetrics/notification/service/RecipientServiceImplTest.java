@@ -19,7 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.initMocks;
+import static org.mockito.MockitoAnnotations.openMocks;
 
 public class RecipientServiceImplTest {
 
@@ -31,7 +31,7 @@ public class RecipientServiceImplTest {
 
 	@Before
 	public void setup() {
-		initMocks(this);
+		openMocks(this);
 	}
 
 	@Test

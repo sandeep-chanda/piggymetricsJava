@@ -15,7 +15,7 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.*;
-import static org.mockito.MockitoAnnotations.initMocks;
+import static org.mockito.MockitoAnnotations.openMocks;
 
 public class ExchangeRatesServiceImplTest {
 
@@ -27,7 +27,7 @@ public class ExchangeRatesServiceImplTest {
 
 	@Before
 	public void setup() {
-		initMocks(this);
+		openMocks(this);
 	}
 
 	@Test

@@ -15,7 +15,7 @@ import java.util.Arrays;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.*;
-import static org.mockito.MockitoAnnotations.initMocks;
+import static org.mockito.MockitoAnnotations.openMocks;
 
 public class AccountServiceTest {
 
@@ -33,7 +33,7 @@ public class AccountServiceTest {
 
 	@Before
 	public void setup() {
-		initMocks(this);
+		openMocks(this);
 	}
 
 	@Test
