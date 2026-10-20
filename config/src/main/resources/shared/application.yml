@@ -2,13 +2,11 @@ logging:
   level:
     org.springframework.security: INFO
 
-hystrix:
-  command:
-    default:
-      execution:
-        isolation:
-          thread:
-            timeoutInMilliseconds: 10000
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 10s
 
 eureka:
   instance:
@@ -17,11 +15,11 @@ eureka:
     serviceUrl:
       defaultZone: http://registry:8761/eureka/
 
-security:
-  oauth2:
-    resource:
-      user-info-uri: http://auth-service:5000/uaa/users/current
-
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        opaque-token:
+          introspection-uri: http://auth-service:5000/uaa/users/current
   rabbitmq:
     host: rabbitmq

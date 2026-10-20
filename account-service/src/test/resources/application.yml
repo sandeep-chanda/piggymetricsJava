@@ -1,5 +1,31 @@
 spring:
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+  security:
+    oauth2:
+      client:
+        registration:
+          account-service:
+            client-id: account-service
+            client-secret: password
+            authorization-grant-type: client_credentials
+            scope: server
+            provider: auth-service
+        provider:
+          auth-service:
+            token-uri: http://localhost:9999/uaa/oauth2/token
+      resourceserver:
+        opaque-token:
+          introspection-uri: http://localhost:9999/uaa/users/current
   data:
     mongodb:
       database: piggymetrics
       port: 0
+
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 2s
