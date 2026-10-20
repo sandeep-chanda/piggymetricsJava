@@ -51,3 +51,5 @@ spring:
             fallback: false
           ssl:
             enable: true
+
+de.flapdoodle.mongodb.embedded.version: 5.0.12

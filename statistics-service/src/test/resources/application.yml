@@ -32,3 +32,5 @@ spring:
 
 rates:
   url: https://api.exchangeratesapi.io
+
+de.flapdoodle.mongodb.embedded.version: 5.0.12

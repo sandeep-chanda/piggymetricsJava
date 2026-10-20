@@ -29,3 +29,5 @@ resilience4j:
     configs:
       default:
         timeoutDuration: 2s
+
+de.flapdoodle.mongodb.embedded.version: 5.0.12
