@@ -2,8 +2,9 @@ package com.piggymetrics.auth.service;
 
 import com.piggymetrics.auth.domain.User;
 import com.piggymetrics.auth.repository.UserRepository;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
@@ -20,7 +21,7 @@ public class UserServiceTest {
 	@Mock
 	private UserRepository repository;
 
-	@Before
+	@BeforeEach
 	public void setup() {
 		initMocks(this);
 	}
@@ -36,14 +37,16 @@ public class UserServiceTest {
 		verify(repository, times(1)).save(user);
 	}
 
-	@Test(expected = IllegalArgumentException.class)
+	@Test
 	public void shouldFailWhenUserAlreadyExists() {
+		assertThrows(IllegalArgumentException.class, () -> {
 
-		User user = new User();
-		user.setUsername("name");
-		user.setPassword("password");
+			User user = new User();
+			user.setUsername("name");
+			user.setPassword("password");
 
-		when(repository.findById(user.getUsername())).thenReturn(Optional.of(new User()));
-		userService.create(user);
+			when(repository.findById(user.getUsername())).thenReturn(Optional.of(new User()));
+			userService.create(user);
+		});
 	}
 }
