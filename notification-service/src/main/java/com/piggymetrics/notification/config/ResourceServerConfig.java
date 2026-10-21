@@ -1,34 +1,45 @@
 package com.piggymetrics.notification.config;
 
 import feign.RequestInterceptor;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.cloud.security.oauth2.client.feign.OAuth2FeignRequestInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.oauth2.client.DefaultOAuth2ClientContext;
-import org.springframework.security.oauth2.client.OAuth2RestTemplate;
-import org.springframework.security.oauth2.client.token.grant.client.ClientCredentialsResourceDetails;
-import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
-import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
+import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * @author cdov
- */
 @Configuration
-@EnableResourceServer
-public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
+public class ResourceServerConfig {
+
     @Bean
-    @ConfigurationProperties(prefix = "security.oauth2.client")
-    public ClientCredentialsResourceDetails clientCredentialsResourceDetails() {
-        return new ClientCredentialsResourceDetails();
-    }
-    @Bean
-    public RequestInterceptor oauth2FeignRequestInterceptor(){
-        return new OAuth2FeignRequestInterceptor(new DefaultOAuth2ClientContext(), clientCredentialsResourceDetails());
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated());
+        http.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
+        http.oauth2Client(Customizer.withDefaults());
+        return http.build();
     }
 
     @Bean
-    public OAuth2RestTemplate clientCredentialsRestTemplate() {
-        return new OAuth2RestTemplate(clientCredentialsResourceDetails());
+    OAuth2AuthorizedClientManager authorizedClientManager(
+            ClientRegistrationRepository clients,
+            OAuth2AuthorizedClientRepository authorizedClients) {
+        return new DefaultOAuth2AuthorizedClientManager(clients, authorizedClients);
+    }
+
+    @Bean
+    RequestInterceptor oauth2FeignRequestInterceptor(OAuth2AuthorizedClientManager manager) {
+        return template -> {
+            OAuth2AuthorizeRequest request = OAuth2AuthorizeRequest.withClientRegistrationId("notification-service")
+                    .principal("notification-service")
+                    .build();
+            var client = manager.authorize(request);
+            if (client != null && client.getAccessToken() != null) {
+                template.header("Authorization", "Bearer " + client.getAccessToken().getTokenValue());
+            }
+        };
     }
 }

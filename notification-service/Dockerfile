@@ -1,7 +1,6 @@
-FROM java:8-jre
-MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+FROM eclipse-temurin:21-jre
 
-ADD ./target/notification-service.jar /app/
-CMD ["java", "-Xmx200m", "-jar", "/app/notification-service.jar"]
+WORKDIR /app
+COPY ./target/*.jar app.jar
+CMD ["java", "-jar", "/app/app.jar"]
 
-EXPOSE 8000
