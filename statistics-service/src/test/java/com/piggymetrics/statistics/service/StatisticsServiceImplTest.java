@@ -31,7 +31,7 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.initMocks;
+import static org.mockito.MockitoAnnotations.openMocks;
 
 public class StatisticsServiceImplTest {
 
@@ -46,7 +46,7 @@ public class StatisticsServiceImplTest {
 
 	@Before
 	public void setup() {
-		initMocks(this);
+		openMocks(this);
 	}
 
 	@Test

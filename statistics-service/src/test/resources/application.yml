@@ -1,16 +1,36 @@
-hystrix:
-  command:
-    default:
-      execution:
-        isolation:
-          thread:
-            timeoutInMilliseconds: 20000
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 20s
 
 spring:
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+  security:
+    oauth2:
+      client:
+        registration:
+          statistics-service:
+            client-id: statistics-service
+            client-secret: password
+            authorization-grant-type: client_credentials
+            scope: server
+            provider: auth-service
+        provider:
+          auth-service:
+            token-uri: http://localhost:9999/uaa/oauth2/token
+      resourceserver:
+        opaque-token:
+          introspection-uri: http://localhost:9999/uaa/users/current
   data:
     mongodb:
       database: piggymetrics
       port: 0
 
 rates:
-  url: https://api.exchangeratesapi.io
+  url: https://api.frankfurter.app
+
+de.flapdoodle.mongodb.embedded.version: 5.0.12

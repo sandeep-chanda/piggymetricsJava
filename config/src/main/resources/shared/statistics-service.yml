@@ -1,13 +1,24 @@
-security:
-  oauth2:
-    client:
-      clientId: statistics-service
-      clientSecret: ${STATISTICS_SERVICE_PASSWORD}
-      accessTokenUri: http://auth-service:5000/uaa/oauth/token
-      grant-type: client_credentials
-      scope: server
-
 spring:
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+  security:
+    oauth2:
+      client:
+        registration:
+          statistics-service:
+            client-id: statistics-service
+            client-secret: ${STATISTICS_SERVICE_PASSWORD}
+            authorization-grant-type: client_credentials
+            scope: server
+            provider: auth-service
+        provider:
+          auth-service:
+            token-uri: http://auth-service:5000/uaa/oauth2/token
+      resourceserver:
+        opaque-token:
+          introspection-uri: http://auth-service:5000/uaa/users/current
   data:
     mongodb:
       host: statistics-mongodb
@@ -22,4 +33,4 @@ server:
   port: 7000
 
 rates:
-  url: https://api.exchangeratesapi.io
+  url: https://api.frankfurter.app

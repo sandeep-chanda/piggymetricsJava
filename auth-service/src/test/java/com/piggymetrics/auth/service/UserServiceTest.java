@@ -10,7 +10,7 @@ import org.mockito.Mock;
 import java.util.Optional;
 
 import static org.mockito.Mockito.*;
-import static org.mockito.MockitoAnnotations.initMocks;
+import static org.mockito.MockitoAnnotations.openMocks;
 
 public class UserServiceTest {
 
@@ -22,7 +22,7 @@ public class UserServiceTest {
 
 	@Before
 	public void setup() {
-		initMocks(this);
+		openMocks(this);
 	}
 
 	@Test

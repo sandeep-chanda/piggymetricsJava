@@ -12,6 +12,26 @@ backup:
     attachment: backup.json
 
 spring:
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+  security:
+    oauth2:
+      client:
+        registration:
+          notification-service:
+            client-id: notification-service
+            client-secret: password
+            authorization-grant-type: client_credentials
+            scope: server
+            provider: auth-service
+        provider:
+          auth-service:
+            token-uri: http://localhost:9999/uaa/oauth2/token
+      resourceserver:
+        opaque-token:
+          introspection-uri: http://localhost:9999/uaa/users/current
   data:
     mongodb:
       database: piggymetrics
@@ -31,3 +51,5 @@ spring:
             fallback: false
           ssl:
             enable: true
+
+de.flapdoodle.mongodb.embedded.version: 5.0.12
