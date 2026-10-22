@@ -1,0 +1,65 @@
+task_id: walk-22-oct-fresh-p1
+title: Walk 22 Oct fresh
+plan_key: P1
+goal: Upgrade piggymetricsJava in place to Spring Boot 3 and Java 21
+requirements:
+- id: REQ-P1
+  text: Every module builds on Spring Boot 3.5.16 Spring Cloud 2025.0.3 Java 21
+  priority: must
+- id: REQ-P1-T1
+  text: Parent POM moves to Boot 3.5.16 Cloud 2025.0.3 Java 21
+  priority: must
+- id: REQ-P2
+  text: No Zuul marker starter or config key remains; Spring Cloud Gateway in place; tests green
+  priority: must
+- id: REQ-P3
+  text: No Hystrix marker starter or config key remains; Resilience4j in place; tests green
+  priority: must
+- id: REQ-P4
+  text: No Ribbon marker or config key remains; Spring Cloud LoadBalancer in place
+  priority: must
+- id: REQ-P5
+  text: monitoring and turbine-stream-service consumer decisions recorded
+  priority: must
+- id: REQ-JAKARTA
+  text: Listed javax validation sources move to jakarta.*
+  priority: must
+- id: REQ-SEC-ADAPTER
+  text: WebSecurityConfigurerAdapter sources become SecurityFilterChain
+  priority: must
+- id: REQ-SEC-MATCHERS
+  text: antMatchers become requestMatchers
+  priority: must
+- id: REQ-OAUTH
+  text: Legacy spring-security-oauth2 annotations migrate to Authorization Server and oauth2ResourceServer
+  priority: must
+- id: REQ-CLOUD-SEC
+  text: spring-cloud-starter-oauth2 and OAuth2FeignRequestInterceptor leave the tree
+  priority: must
+- id: REQ-TURBINE
+  text: turbine-stream-service replaced or named-deleted
+  priority: must
+- id: REQ-JVM-IMAGES
+  text: Every runtime Dockerfile FROM moves to JVM 21
+  priority: must
+- id: REQ-GATE
+  text: Final acceptance is mvn test
+  priority: must
+- id: REQ-P2-T19
+  text: StatisticsServiceClientFallbackTest stays green
+  priority: must
+- id: REQ-P3-T16
+  text: StatisticsServiceClientFallbackTest stays green under Resilience4j
+  priority: must
+- id: REQ-P3-T12
+  text: StatisticsServiceClientFallback remains the Feign fallback
+  priority: must
+- id: REQ-P4-T5
+  text: StatisticsServiceClientFallbackTest stays green after Ribbon retirement
+  priority: must
+- id: REQ-OAUTH-AUTH
+  text: auth-service OAuth2AuthorizationConfig migrates
+  priority: must
+- id: REQ-OAUTH-STATS
+  text: statistics OAuth resource server migrates
+  priority: must

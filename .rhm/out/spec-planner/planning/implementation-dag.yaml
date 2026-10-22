@@ -1,0 +1,689 @@
+task_id: walk-22-oct-fresh-p1
+nodes:
+- id: STEP-001
+  playbook_ref: STEP-001
+  title: P1.T1 Set parent Spring Boot 3.5.16 Spring Cloud 2025.0.3 Java 21
+  depends_on: []
+  critical_path: true
+  exact_files:
+  - pom.xml
+  summary_spec: Root POM declares Boot 3.5.16, Cloud 2025.0.3, and Java 21 for the reactor.
+  verification:
+    machine:
+    - mvn -q -N help:evaluate -Dexpression=project.parent.version -DforceStdout
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - pom.xml parent version equals 3.5.16
+  - pom.xml properties java.version equals 21
+  - pom.xml properties spring-cloud.version equals 2025.0.3
+  no_imagination: true
+- id: STEP-002
+  playbook_ref: STEP-002
+  title: P1.T2 Re-resolve config starters on Boot 3 line (3 coordinates)
+  depends_on:
+  - STEP-001
+  critical_path: false
+  exact_files:
+  - config/pom.xml
+  summary_spec: config POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  verification:
+    machine:
+    - mvn -pl config -am -DskipTests dependency:resolve
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - config/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl config -am -DskipTests dependency:resolve exits 0
+  no_imagination: true
+- id: STEP-003
+  playbook_ref: STEP-003
+  title: P1.T3 Re-resolve monitoring starters on Boot 3 line (4 coordinates)
+  depends_on:
+  - STEP-001
+  critical_path: false
+  exact_files:
+  - monitoring/pom.xml
+  summary_spec: monitoring POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  verification:
+    machine:
+    - mvn -pl monitoring -am -DskipTests dependency:resolve
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - monitoring/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl monitoring -am -DskipTests dependency:resolve exits 0
+  no_imagination: true
+- id: STEP-004
+  playbook_ref: STEP-004
+  title: P1.T4 Re-resolve registry starters on Boot 3 line (4 coordinates)
+  depends_on:
+  - STEP-001
+  critical_path: false
+  exact_files:
+  - registry/pom.xml
+  summary_spec: registry POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  verification:
+    machine:
+    - mvn -pl registry -am -DskipTests dependency:resolve
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - registry/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl registry -am -DskipTests dependency:resolve exits 0
+  no_imagination: true
+- id: STEP-005
+  playbook_ref: STEP-005
+  title: P1.T5 Re-resolve gateway starters on Boot 3 line (7 coordinates)
+  depends_on:
+  - STEP-001
+  critical_path: true
+  exact_files:
+  - gateway/pom.xml
+  summary_spec: gateway POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  verification:
+    machine:
+    - mvn -pl gateway -am -DskipTests dependency:resolve
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - gateway/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl gateway -am -DskipTests dependency:resolve exits 0
+  no_imagination: true
+- id: STEP-006
+  playbook_ref: STEP-006
+  title: P1.T6 Re-resolve auth-service starters on Boot 3 line (12 coordinates)
+  depends_on:
+  - STEP-001
+  critical_path: false
+  exact_files:
+  - auth-service/pom.xml
+  summary_spec: auth-service POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  verification:
+    machine:
+    - mvn -pl auth-service -am -DskipTests dependency:resolve
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - auth-service/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl auth-service -am -DskipTests dependency:resolve exits 0
+  no_imagination: true
+- id: STEP-007
+  playbook_ref: STEP-007
+  title: P1.T7 Re-resolve account-service starters on Boot 3 line (17 coordinates)
+  depends_on:
+  - STEP-001
+  critical_path: false
+  exact_files:
+  - account-service/pom.xml
+  summary_spec: account-service POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  verification:
+    machine:
+    - mvn -pl account-service -am -DskipTests dependency:resolve
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - account-service/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl account-service -am -DskipTests dependency:resolve exits 0
+  no_imagination: true
+- id: STEP-008
+  playbook_ref: STEP-008
+  title: P1.T8 Re-resolve statistics-service starters on Boot 3 line (17 coordinates)
+  depends_on:
+  - STEP-001
+  critical_path: false
+  exact_files:
+  - statistics-service/pom.xml
+  summary_spec: statistics-service POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  verification:
+    machine:
+    - mvn -pl statistics-service -am -DskipTests dependency:resolve
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - statistics-service/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl statistics-service -am -DskipTests dependency:resolve exits 0
+  no_imagination: true
+- id: STEP-009
+  playbook_ref: STEP-009
+  title: P1.T9 Re-resolve notification-service starters on Boot 3 line (17 coordinates)
+  depends_on:
+  - STEP-001
+  critical_path: false
+  exact_files:
+  - notification-service/pom.xml
+  summary_spec: notification-service POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  verification:
+    machine:
+    - mvn -pl notification-service -am -DskipTests dependency:resolve
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - notification-service/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl notification-service -am -DskipTests dependency:resolve exits 0
+  no_imagination: true
+- id: STEP-010
+  playbook_ref: STEP-010
+  title: P1.T10 Re-resolve turbine-stream-service starters on Boot 3 line (6 coordinates)
+  depends_on:
+  - STEP-001
+  critical_path: false
+  exact_files:
+  - turbine-stream-service/pom.xml
+  summary_spec: turbine-stream-service POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  verification:
+    machine:
+    - mvn -pl turbine-stream-service -am -DskipTests dependency:resolve
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - turbine-stream-service/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl turbine-stream-service -am -DskipTests dependency:resolve exits 0
+  no_imagination: true
+- id: STEP-011
+  playbook_ref: STEP-011
+  title: Raise every runtime Dockerfile FROM to eclipse-temurin Java 21 JRE
+  depends_on:
+  - STEP-001
+  critical_path: false
+  exact_files:
+  - config/Dockerfile
+  - monitoring/Dockerfile
+  - registry/Dockerfile
+  - gateway/Dockerfile
+  - auth-service/Dockerfile
+  - account-service/Dockerfile
+  - statistics-service/Dockerfile
+  - notification-service/Dockerfile
+  - turbine-stream-service/Dockerfile
+  summary_spec: All nine Java service Dockerfiles boot eclipse-temurin:21-jre.
+  verification:
+    machine:
+    - rg -n '^FROM ' config/Dockerfile monitoring/Dockerfile registry/Dockerfile gateway/Dockerfile auth-service/Dockerfile
+      account-service/Dockerfile statistics-service/Dockerfile notification-service/Dockerfile turbine-stream-service/Dockerfile
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - Every listed Dockerfile FROM line equals eclipse-temurin:21-jre
+  no_imagination: true
+- id: STEP-012
+  playbook_ref: STEP-012
+  title: P2.T1 Remove EnableZuulProxy from GatewayApplication
+  depends_on:
+  - STEP-005
+  critical_path: true
+  exact_files:
+  - gateway/src/main/java/com/piggymetrics/gateway/GatewayApplication.java
+  summary_spec: Gateway bootstraps via Spring Cloud Gateway without Zuul annotations.
+  verification:
+    machine:
+    - mvn -pl gateway -am test
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - GatewayApplication.java contains no EnableZuulProxy symbol
+  - mvn -pl gateway -am test exits 0
+  no_imagination: true
+- id: STEP-013
+  playbook_ref: STEP-013
+  title: P2.T4-T18 Write gateway.yml Spring Cloud Gateway routes and timeouts
+  depends_on:
+  - STEP-012
+  - STEP-005
+  critical_path: true
+  exact_files:
+  - config/src/main/resources/shared/gateway.yml
+  summary_spec: Shared gateway.yml is pure Spring Cloud Gateway webflux configuration.
+  verification:
+    machine:
+    - rg -n 'zuul\.|ribbon\.|hystrix\.' config/src/main/resources/shared/gateway.yml; test $? -eq 1
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - gateway.yml has zero matches for zuul. ribbon. or hystrix. keys
+  - gateway.yml declares spring.cloud.gateway.server.webflux.routes for the four services
+  - Path predicates remain /uaa/** /accounts/** /statistics/** /notifications/**
+  no_imagination: true
+- id: STEP-014
+  playbook_ref: STEP-014
+  title: P3.T3 Write shared application.yml Resilience4j timeout keys
+  depends_on:
+  - STEP-001
+  critical_path: false
+  exact_files:
+  - config/src/main/resources/shared/application.yml
+  summary_spec: Shared application.yml uses Resilience4j time limiter defaults.
+  verification:
+    machine:
+    - rg -n '^hystrix:' config/src/main/resources/shared/application.yml; test $? -eq 1
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - application.yml has no hystrix keys
+  - resilience4j.timelimiter.configs.default.timeoutDuration equals 10s
+  no_imagination: true
+- id: STEP-015
+  playbook_ref: STEP-015
+  title: P3.T2 P3.T11 Write account-service.yml Feign circuitbreaker enabled
+  depends_on:
+  - STEP-007
+  - STEP-014
+  critical_path: false
+  exact_files:
+  - config/src/main/resources/shared/account-service.yml
+  summary_spec: account-service.yml enables Feign circuit breakers without Hystrix keys.
+  verification:
+    machine:
+    - rg -n 'feign\.hystrix|hystrix' config/src/main/resources/shared/account-service.yml; test $? -eq 1
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - account-service.yml sets spring.cloud.openfeign.circuitbreaker.enabled to true
+  - No feign.hystrix key remains
+  no_imagination: true
+- id: STEP-016
+  playbook_ref: STEP-016
+  title: P3.T1 Write AccountApplication without EnableCircuitBreaker
+  depends_on:
+  - STEP-007
+  critical_path: false
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/AccountApplication.java
+  summary_spec: Account service boots with method security and Feign on the Boot 3 line.
+  verification:
+    machine:
+    - mvn -pl account-service -am test
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - AccountApplication has no EnableCircuitBreaker symbol
+  - AccountApplication has no EnableOAuth2Client symbol
+  no_imagination: true
+- id: STEP-017
+  playbook_ref: STEP-017
+  title: P3.T5 P5.T1 Retire EnableHystrixDashboard on monitoring
+  depends_on:
+  - STEP-003
+  critical_path: false
+  exact_files:
+  - monitoring/src/main/java/com/piggymetrics/monitoring/MonitoringApplication.java
+  summary_spec: Monitoring module is an Actuator host without Hystrix Dashboard.
+  verification:
+    machine:
+    - mvn -pl monitoring -am test
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - MonitoringApplication contains no EnableHystrixDashboard
+  - monitoring/pom.xml contains no hystrix-dashboard artifact
+  no_imagination: true
+- id: STEP-018
+  playbook_ref: STEP-018
+  title: P5.T2 Named deletion of turbine-stream-service module
+  depends_on:
+  - STEP-010
+  - STEP-017
+  critical_path: false
+  exact_files:
+  - pom.xml
+  - docker-compose.yml
+  - docker-compose.dev.yml
+  summary_spec: Turbine Stream module is removed from the reactor and compose topology.
+  verification:
+    machine:
+    - test ! -d turbine-stream-service
+    - rg -n 'turbine-stream-service' pom.xml docker-compose.yml docker-compose.dev.yml; test $? -eq 1
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - pom.xml modules list omits turbine-stream-service
+  - turbine-stream-service directory is deleted
+  - compose files have no turbine-stream-service service
+  no_imagination: true
+- id: STEP-019
+  playbook_ref: STEP-019
+  title: Write config SecurityConfig as SecurityFilterChain requestMatchers
+  depends_on:
+  - STEP-002
+  critical_path: false
+  exact_files:
+  - config/src/main/java/com/piggymetrics/config/SecurityConfig.java
+  summary_spec: Config server security uses SecurityFilterChain with requestMatchers.
+  verification:
+    machine:
+    - mvn -pl config -am -DskipTests compile
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - SecurityConfig.java contains SecurityFilterChain
+  - SecurityConfig.java contains no WebSecurityConfigurerAdapter
+  - SecurityConfig.java contains no antMatchers
+  no_imagination: true
+- id: STEP-020
+  playbook_ref: STEP-020
+  title: Write auth WebSecurityConfig as SecurityFilterChain
+  depends_on:
+  - STEP-006
+  critical_path: false
+  exact_files:
+  - auth-service/src/main/java/com/piggymetrics/auth/config/WebSecurityConfig.java
+  summary_spec: Auth WebSecurityConfig exposes SecurityFilterChain and AuthenticationManager beans.
+  verification:
+    machine:
+    - mvn -pl auth-service -am -DskipTests compile
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - WebSecurityConfig.java contains SecurityFilterChain
+  - WebSecurityConfig.java contains no WebSecurityConfigurerAdapter
+  no_imagination: true
+- id: STEP-021
+  playbook_ref: STEP-021
+  title: Write auth OAuth2AuthorizationConfig on Spring Authorization Server
+  depends_on:
+  - STEP-006
+  - STEP-020
+  critical_path: true
+  exact_files:
+  - auth-service/src/main/java/com/piggymetrics/auth/config/OAuth2AuthorizationConfig.java
+  - auth-service/src/main/java/com/piggymetrics/auth/AuthApplication.java
+  summary_spec: Auth service issues tokens through Spring Authorization Server registered clients.
+  verification:
+    machine:
+    - mvn -pl auth-service -am test
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - OAuth2AuthorizationConfig contains RegisteredClientRepository bean
+  - AuthApplication contains no EnableResourceServer
+  - auth-service/pom.xml contains spring-boot-starter-oauth2-authorization-server
+  no_imagination: true
+- id: STEP-022
+  playbook_ref: STEP-022
+  title: Write account ResourceServerConfig oauth2ResourceServer and Feign interceptor
+  depends_on:
+  - STEP-007
+  - STEP-016
+  critical_path: true
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/config/ResourceServerConfig.java
+  - account-service/src/main/java/com/piggymetrics/account/service/security/CustomUserInfoTokenServices.java
+  summary_spec: Account service protects APIs with oauth2ResourceServer and propagates client credentials on Feign calls.
+  verification:
+    machine:
+    - test ! -f account-service/src/main/java/com/piggymetrics/account/service/security/CustomUserInfoTokenServices.java
+    - mvn -pl account-service -am test
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - ResourceServerConfig uses oauth2ResourceServer
+  - CustomUserInfoTokenServices.java is deleted
+  - No OAuth2FeignRequestInterceptor import remains in account-service
+  no_imagination: true
+- id: STEP-023
+  playbook_ref: STEP-023
+  title: Write statistics ResourceServerConfig and StatisticsApplication on Boot 3
+  depends_on:
+  - STEP-008
+  critical_path: false
+  exact_files:
+  - statistics-service/src/main/java/com/piggymetrics/statistics/config/ResourceServerConfig.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/StatisticsApplication.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/service/security/CustomUserInfoTokenServices.java
+  summary_spec: Statistics service authenticates with opaque tokens and keeps Mongo converters on the Boot 3 API.
+  verification:
+    machine:
+    - mvn -pl statistics-service -am test
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - statistics ResourceServerConfig uses oauth2ResourceServer
+  - StatisticsApplication uses MongoCustomConversions
+  - statistics CustomUserInfoTokenServices.java is deleted
+  no_imagination: true
+- id: STEP-024
+  playbook_ref: STEP-024
+  title: Write notification ResourceServerConfig and application without legacy OAuth
+  depends_on:
+  - STEP-009
+  critical_path: false
+  exact_files:
+  - notification-service/src/main/java/com/piggymetrics/notification/config/ResourceServerConfig.java
+  - notification-service/src/main/java/com/piggymetrics/notification/NotificationServiceApplication.java
+  summary_spec: Notification service uses Spring Security OAuth2 client for Feign and opaque resource server security.
+  verification:
+    machine:
+    - mvn -pl notification-service -am test
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - notification ResourceServerConfig contains oauth2ResourceServer
+  - NotificationServiceApplication contains no EnableOAuth2Client
+  no_imagination: true
+- id: STEP-025
+  playbook_ref: STEP-025
+  title: Move account-service javax.validation imports to jakarta.validation
+  depends_on:
+  - STEP-007
+  critical_path: false
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/Account.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/Item.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/Saving.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/User.java
+  summary_spec: Account-service validation annotations resolve under jakarta.validation.
+  verification:
+    machine:
+    - rg -n 'javax\.validation' account-service/src/main; test $? -eq 1
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - No javax.validation import remains under account-service/src/main
+  - Each listed file matches its pinned final text
+  no_imagination: true
+- id: STEP-026
+  playbook_ref: STEP-026
+  title: Move auth-service UserController to jakarta.validation
+  depends_on:
+  - STEP-006
+  critical_path: false
+  exact_files:
+  - auth-service/src/main/java/com/piggymetrics/auth/controller/UserController.java
+  summary_spec: UserController validates request bodies with jakarta.validation.
+  verification:
+    machine:
+    - rg -n 'javax\.validation' auth-service/src/main; test $? -eq 1
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - UserController imports jakarta.validation.Valid
+  no_imagination: true
+- id: STEP-027
+  playbook_ref: STEP-027
+  title: Move statistics-service javax.validation imports to jakarta.validation
+  depends_on:
+  - STEP-008
+  critical_path: false
+  exact_files:
+  - statistics-service/src/main/java/com/piggymetrics/statistics/controller/StatisticsController.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/domain/Account.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/domain/Item.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/domain/Saving.java
+  summary_spec: Statistics validation annotations resolve under jakarta.validation.
+  verification:
+    machine:
+    - rg -n 'javax\.validation' statistics-service/src/main; test $? -eq 1
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - No javax.validation import remains under statistics-service/src/main
+  no_imagination: true
+- id: STEP-028
+  playbook_ref: STEP-028
+  title: Move notification-service javax.validation and javax.mail to jakarta
+  depends_on:
+  - STEP-009
+  critical_path: false
+  exact_files:
+  - notification-service/src/main/java/com/piggymetrics/notification/controller/RecipientController.java
+  - notification-service/src/main/java/com/piggymetrics/notification/domain/NotificationSettings.java
+  - notification-service/src/main/java/com/piggymetrics/notification/domain/Recipient.java
+  - notification-service/src/main/java/com/piggymetrics/notification/service/EmailService.java
+  - notification-service/src/main/java/com/piggymetrics/notification/service/EmailServiceImpl.java
+  - notification-service/src/test/java/com/piggymetrics/notification/service/EmailServiceImplTest.java
+  - notification-service/src/test/java/com/piggymetrics/notification/service/NotificationServiceImplTest.java
+  summary_spec: Notification service compiles against jakarta.validation and jakarta.mail.
+  verification:
+    machine:
+    - rg -n 'javax\.(validation|mail)' notification-service/src; test $? -eq 1
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - No javax.validation or javax.mail imports remain under notification-service/src
+  no_imagination: true
+- id: STEP-029
+  playbook_ref: STEP-029
+  title: P3.T12 P2.T19 Keep Feign fallbacks and green StatisticsServiceClientFallbackTest
+  depends_on:
+  - STEP-016
+  - STEP-015
+  - STEP-025
+  critical_path: true
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClient.java
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClientFallback.java
+  - account-service/src/main/java/com/piggymetrics/account/client/AuthServiceClient.java
+  - account-service/src/test/java/com/piggymetrics/account/client/StatisticsServiceClientFallbackTest.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/client/ExchangeRatesClient.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/client/ExchangeRatesClientFallback.java
+  - notification-service/src/main/java/com/piggymetrics/notification/client/AccountServiceClient.java
+  summary_spec: Feign fallbacks remain wired under Resilience4j and the fallback test stays green.
+  verification:
+    machine:
+    - mvn -pl account-service -am -Dtest=StatisticsServiceClientFallbackTest test
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - StatisticsServiceClientFallbackTest passes under mvn test
+  - StatisticsServiceClient still declares fallback = StatisticsServiceClientFallback.class
+  - ExchangeRatesClient still declares fallback = ExchangeRatesClientFallback.class
+  - Test properties use spring.cloud.openfeign.circuitbreaker.enabled=true
+  no_imagination: true
+- id: STEP-030
+  playbook_ref: STEP-030
+  title: Run full reactor mvn test acceptance gate
+  depends_on:
+  - STEP-013
+  - STEP-018
+  - STEP-021
+  - STEP-022
+  - STEP-023
+  - STEP-024
+  - STEP-028
+  - STEP-029
+  - STEP-011
+  critical_path: true
+  exact_files:
+  - pom.xml
+  summary_spec: Full reactor tests pass on Spring Boot 3.5.16 Java 21 without Zuul Hystrix Ribbon markers.
+  verification:
+    machine:
+    - mvn test
+    human:
+    - Open the touched file and confirm the pinned final text is present verbatim
+  acceptance:
+  - mvn test exits 0 for the reactor
+  - rg finds no zuul.|EnableZuulProxy|spring-cloud-starter-netflix-zuul
+  - rg finds no hystrix.|EnableHystrix|EnableCircuitBreaker|spring-cloud-starter-netflix-hystrix
+  - rg finds no ribbon.ReadTimeout|ribbon.ConnectTimeout
+  no_imagination: true
+edges:
+- from: STEP-001
+  to: STEP-002
+- from: STEP-001
+  to: STEP-003
+- from: STEP-001
+  to: STEP-004
+- from: STEP-001
+  to: STEP-005
+- from: STEP-001
+  to: STEP-006
+- from: STEP-001
+  to: STEP-007
+- from: STEP-001
+  to: STEP-008
+- from: STEP-001
+  to: STEP-009
+- from: STEP-001
+  to: STEP-010
+- from: STEP-001
+  to: STEP-011
+- from: STEP-005
+  to: STEP-012
+- from: STEP-012
+  to: STEP-013
+- from: STEP-005
+  to: STEP-013
+- from: STEP-001
+  to: STEP-014
+- from: STEP-007
+  to: STEP-015
+- from: STEP-014
+  to: STEP-015
+- from: STEP-007
+  to: STEP-016
+- from: STEP-003
+  to: STEP-017
+- from: STEP-010
+  to: STEP-018
+- from: STEP-017
+  to: STEP-018
+- from: STEP-002
+  to: STEP-019
+- from: STEP-006
+  to: STEP-020
+- from: STEP-006
+  to: STEP-021
+- from: STEP-020
+  to: STEP-021
+- from: STEP-007
+  to: STEP-022
+- from: STEP-016
+  to: STEP-022
+- from: STEP-008
+  to: STEP-023
+- from: STEP-009
+  to: STEP-024
+- from: STEP-007
+  to: STEP-025
+- from: STEP-006
+  to: STEP-026
+- from: STEP-008
+  to: STEP-027
+- from: STEP-009
+  to: STEP-028
+- from: STEP-016
+  to: STEP-029
+- from: STEP-015
+  to: STEP-029
+- from: STEP-025
+  to: STEP-029
+- from: STEP-013
+  to: STEP-030
+- from: STEP-018
+  to: STEP-030
+- from: STEP-021
+  to: STEP-030
+- from: STEP-022
+  to: STEP-030
+- from: STEP-023
+  to: STEP-030
+- from: STEP-024
+  to: STEP-030
+- from: STEP-028
+  to: STEP-030
+- from: STEP-029
+  to: STEP-030
+- from: STEP-011
+  to: STEP-030

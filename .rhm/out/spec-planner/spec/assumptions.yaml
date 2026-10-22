@@ -1,0 +1,7 @@
+assumptions:
+- id: A-001
+  text: Target coordinates Spring Boot 3.5.16 Spring Cloud 2025.0.3 Java 21 are authoritative from the Spec
+  evidence: intake/raw-spec.md
+- id: A-002
+  text: No sibling repositories are required; connection.meta sibling_repos is empty
+  evidence: intake/connection.meta.json

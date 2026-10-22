@@ -1,0 +1,7 @@
+id: R-004
+title: Cloud 2025 Gateway uses server-webflux starter and property prefix
+evidence:
+- spring.io blog 2025.0.0
+- spring-cloud-starter-gateway-server-webflux
+- spring.cloud.gateway.server.webflux.*
+implication: Pin successor coordinates and YAML keys to that prefix

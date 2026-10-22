@@ -1,0 +1,9 @@
+summary: PiggyMetrics Java microservices on Boot 2 / Finchley with Zuul gateway, Hystrix, Ribbon timeouts, legacy OAuth2,
+  javax validation
+findings_refs:
+- R-001
+- R-002
+- R-003
+- R-004
+test_classes: 25
+dockerfiles_java8: 9

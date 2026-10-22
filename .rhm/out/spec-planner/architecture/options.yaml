@@ -1,0 +1,19 @@
+options:
+- id: O-GW
+  topic: API gateway
+  options:
+  - Spring Cloud Gateway WebFlux
+  - Gateway WebMVC
+  chosen: WebFlux
+- id: O-CB
+  topic: Circuit breaker
+  options:
+  - Resilience4j
+  - None
+  chosen: Resilience4j
+- id: O-TUR
+  topic: Turbine
+  options:
+  - Delete module
+  - Repurpose
+  chosen: Delete module

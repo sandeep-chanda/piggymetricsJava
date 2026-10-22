@@ -1,0 +1,20 @@
+questions:
+- id: Q-001
+  question: What is the current parent BOM and Java level?
+  dimension: environment
+  status: resolved
+  finding_refs:
+  - R-001
+- id: Q-002
+  question: Which Netflix and OAuth APIs block Boot 3?
+  dimension: repository
+  status: resolved
+  finding_refs:
+  - R-002
+  - R-003
+- id: Q-003
+  question: What is the Gateway starter and property prefix on Cloud 2025.0?
+  dimension: external
+  status: resolved
+  finding_refs:
+  - R-004

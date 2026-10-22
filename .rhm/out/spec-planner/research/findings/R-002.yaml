@@ -1,0 +1,8 @@
+id: R-002
+title: Zuul Hystrix Ribbon markers present
+evidence:
+- gateway EnableZuulProxy
+- gateway.yml zuul ribbon hystrix
+- account EnableCircuitBreaker
+- feign.hystrix.enabled
+implication: P2 P3 P4 successor migrations required

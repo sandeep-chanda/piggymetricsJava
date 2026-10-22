@@ -1,0 +1,16 @@
+task_id: walk-22-oct-fresh-p1
+gates:
+- id: G-UNIT
+  command: mvn test
+  covers:
+  - REQ-P2
+  - REQ-P3
+  - REQ-P4
+  - REQ-P2-T19
+  - REQ-P3-T16
+- id: G-FALLBACK
+  command: mvn -pl account-service -am -Dtest=StatisticsServiceClientFallbackTest test
+  covers:
+  - REQ-P2-T19
+  - REQ-P3-T16
+  - REQ-P4-T5

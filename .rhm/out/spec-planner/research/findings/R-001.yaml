@@ -1,0 +1,7 @@
+id: R-001
+title: Parent BOM is Boot 2.0.3 Finchley Java 8
+evidence:
+- pom.xml parent 2.0.3.RELEASE
+- java.version 1.8
+- spring-cloud.version Finchley.RELEASE
+implication: P1 must move parent to 3.5.16 / 2025.0.3 / 21

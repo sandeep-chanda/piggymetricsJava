@@ -1,0 +1,26 @@
+stack:
+  build: Maven multi-module
+  language: Java
+  framework: Spring Boot
+  current_boot: 2.0.3.RELEASE
+  current_cloud: Finchley.RELEASE
+  current_java: '1.8'
+  target_boot: 3.5.16
+  target_cloud: 2025.0.3
+  target_java: '21'
+  modules:
+  - config
+  - monitoring
+  - registry
+  - gateway
+  - auth-service
+  - account-service
+  - statistics-service
+  - notification-service
+  - turbine-stream-service
+  test_command: mvn test
+  evidence:
+  - pom.xml
+  - '*/pom.xml'
+  - '**/Dockerfile'
+pass: true

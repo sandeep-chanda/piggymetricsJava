@@ -1,0 +1,217 @@
+decisions:
+- id: D-001
+  decision: Use Spring Boot 3.5.16 with Spring Cloud 2025.0.3 BOM import and java.version 21 at the reactor parent
+  alternatives:
+  - Stay on Boot 2
+  - Boot 3.4.x with older Cloud train
+  chosen: Boot 3.5.16 + Cloud 2025.0.3 + Java 21
+  rationale: Spec P1.T1 names these exact coordinates
+  evidence_refs:
+  - R-001
+  consequences:
+  - All module starters re-resolve on the new BOM
+  - Dockerfiles must move to JVM 21
+  constraints:
+  - Do not lower acceptance below mvn test
+  rejected_with_reason:
+  - alt: Stay on Boot 2
+    why: Violates Spec goal
+  - alt: Boot 3.4.x
+    why: Conflicts with named 3.5.16 coordinate
+- id: D-002
+  decision: Set every Java service Dockerfile FROM to eclipse-temurin:21-jre
+  alternatives:
+  - Keep java:8-jre
+  - Use amazoncorretto:21
+  chosen: eclipse-temurin:21-jre
+  rationale: JVM major raised in parent; runtime images must match
+  evidence_refs:
+  - R-001
+  consequences:
+  - Nine Dockerfiles change
+  constraints:
+  - Do not ban Dockerfile edits
+  rejected_with_reason:
+  - alt: Keep java:8-jre
+    why: Breaks Java 21 bytecode at runtime
+- id: D-003
+  decision: Re-resolve module starters onto Boot 3 coordinates including validation oauth2 client resource-server loadbalancer
+    resilience4j and micrometer tracing
+  alternatives:
+  - Only bump parent versions
+  chosen: Explicit successor starters per module POM
+  rationale: Parent bump alone leaves removed Netflix and oauth artifacts unresolved
+  evidence_refs:
+  - R-002
+  - R-003
+  consequences:
+  - P1 module POM STEPs pin full dependency lists
+  constraints:
+  - Snippets declare every coordinate sources need
+  rejected_with_reason:
+  - alt: Only bump parent versions
+    why: Removed artifacts still referenced
+- id: D-004
+  decision: Zuul successor is spring-cloud-starter-gateway-server-webflux with spring.cloud.gateway.server.webflux routes
+  alternatives:
+  - spring-cloud-starter-gateway deprecated artifact
+  - spring-cloud-starter-gateway-server-webmvc
+  chosen: spring-cloud-starter-gateway-server-webflux
+  rationale: Spring Cloud 2025 renames the WebFlux server starter; PiggyMetrics gateway is reactive edge proxy
+  evidence_refs:
+  - R-004
+  consequences:
+  - No servlet web starter on gateway
+  - YAML prefix spring.cloud.gateway.server.webflux
+  constraints:
+  - Remove all zuul markers
+  rejected_with_reason:
+  - alt: Deprecated spring-cloud-starter-gateway
+    why: Deprecated on 2025.0 with warning
+  - alt: WebMVC gateway
+    why: Not the documented WebFlux server default for this edge module
+- id: D-005
+  decision: Map Zuul stripPrefix false to absent StripPrefix filter; map routes to Path predicates; auth stays http URI; others
+    use lb://
+  alternatives:
+  - StripPrefix=0
+  - Keep zuul.routes shape
+  chosen: Path predicates without StripPrefix; lb:// for Eureka services
+  rationale: Preserves downstream context-path prefixes used by services
+  evidence_refs:
+  - R-002
+  - R-004
+  consequences:
+  - gateway.yml fully rewritten
+  constraints:
+  - No zuul keys remain
+  rejected_with_reason:
+  - alt: Keep zuul.routes shape
+    why: Zuul absent on Cloud 2025
+- id: D-006
+  decision: Hystrix successor is spring-cloud-starter-circuitbreaker-resilience4j with spring.cloud.openfeign.circuitbreaker.enabled
+  alternatives:
+  - Failsafe
+  - No circuit breaker
+  chosen: Resilience4j via Spring Cloud CircuitBreaker
+  rationale: Spec P3 names Resilience4j; Feign integration is supported
+  evidence_refs:
+  - R-002
+  consequences:
+  - Remove hystrix starters and keys
+  - Keep fallback classes
+  constraints:
+  - StatisticsServiceClientFallbackTest must stay green
+  rejected_with_reason:
+  - alt: No circuit breaker
+    why: Violates P3 Done-when
+- id: D-007
+  decision: Ribbon timeouts in gateway.yml become Gateway httpclient connect-timeout and response-timeout; load balancing
+    uses spring-cloud-starter-loadbalancer
+  alternatives:
+  - OpenFeign-only timeouts
+  chosen: Gateway httpclient timeouts plus loadbalancer starter
+  rationale: Ribbon keys live in gateway.yml affecting edge calls
+  evidence_refs:
+  - R-002
+  consequences:
+  - ribbon keys removed from gateway.yml
+  constraints:
+  - No ribbon markers remain
+  rejected_with_reason:
+  - alt: OpenFeign-only timeouts
+    why: Leaves edge proxy without successor timeout keys
+- id: D-008
+  decision: Replace spring-cloud-starter-oauth2 and spring-security-oauth2 adapters with spring-boot-starter-oauth2-authorization-server
+    on auth-service and oauth2-resource-server plus oauth2-client on resource services
+  alternatives:
+  - Keep legacy oauth2 with unsupported forks
+  chosen: Spring Authorization Server + oauth2ResourceServer opaque token + oauth2 client Feign interceptor
+  rationale: MUST COVER lists removed OAuth APIs and Spring Authorization Server successor
+  evidence_refs:
+  - R-003
+  consequences:
+  - CustomUserInfoTokenServices deleted
+  - security YAML keys move under spring.security.oauth2
+  constraints:
+  - Declare authorization-server and oauth2 client coordinates in POM snippets
+  rejected_with_reason:
+  - alt: Unsupported oauth2 forks
+    why: Not on Boot 3 supported line
+- id: D-009
+  decision: monitoring stops consuming Hystrix streams; module becomes Actuator plus resilience4j-spring-boot3 host without
+    Hystrix Dashboard
+  alternatives:
+  - Delete monitoring module
+  - Add Spring Boot Admin
+  chosen: Keep monitoring module as Actuator host without dashboard annotation
+  rationale: P5.T1 requires a recorded consumer decision; Spec P3 maps dashboard starter off Hystrix
+  evidence_refs:
+  - R-002
+  consequences:
+  - '@EnableHystrixDashboard removed'
+  constraints:
+  - No hystrix-dashboard artifact
+  rejected_with_reason:
+  - alt: Delete monitoring module
+    why: Spec keeps monitoring as platform module with starter re-resolve in P1.T3
+- id: D-010
+  decision: Named deletion of turbine-stream-service from reactor modules compose files and directory
+  alternatives:
+  - Repurpose to Micrometer aggregation service
+  chosen: Named deletion
+  rationale: MUST COVER allows replacement or named deletion; Turbine Stream has no Hystrix-stream successor on Cloud 2025
+  evidence_refs:
+  - R-002
+  consequences:
+  - Parent modules omit turbine-stream-service
+  constraints:
+  - Do not ban deleting turbine files the stack no longer needs
+  rejected_with_reason:
+  - alt: Repurpose module
+    why: No Spec behavior requires Turbine aggregation after Hystrix retirement
+- id: D-011
+  decision: SecurityFilterChain with requestMatchers replaces WebSecurityConfigurerAdapter and antMatchers
+  alternatives:
+  - WebSecurityCustomizer only
+  chosen: SecurityFilterChain beans
+  rationale: Spring Security 6 removed the adapter and antMatchers APIs
+  evidence_refs:
+  - R-003
+  consequences:
+  - config SecurityConfig and auth WebSecurityConfig rewrite
+  constraints:
+  - Pins are final SecurityFilterChain sources
+  rejected_with_reason:
+  - alt: WebSecurityCustomizer only
+    why: Cannot express authorizeHttpRequests rules alone
+- id: D-012
+  decision: Feign OAuth2 propagation uses OAuth2AuthorizedClientManager RequestInterceptor not OAuth2FeignRequestInterceptor
+  alternatives:
+  - Manual header in each client
+  chosen: OAuth2AuthorizedClientManager interceptor bean
+  rationale: Spring Cloud Security OAuth2FeignRequestInterceptor is removed
+  evidence_refs:
+  - R-003
+  consequences:
+  - account and notification ResourceServerConfig pin new interceptor
+  constraints:
+  - oauth2-client starter required
+  rejected_with_reason:
+  - alt: Manual header in each client
+    why: Duplicates credentials handling across Feign interfaces
+- id: D-013
+  decision: All MUST COVER javax.validation sources and notification javax.mail sources move to jakarta.* packages
+  alternatives:
+  - Leave javax and add bridging
+  chosen: Direct jakarta imports
+  rationale: Boot 3 is Jakarta EE 10 without javax EE bridging for validation and mail
+  evidence_refs:
+  - R-003
+  consequences:
+  - Listed Java files pinned with jakarta imports
+  constraints:
+  - spring-boot-starter-validation present on modules that validate
+  rejected_with_reason:
+  - alt: Leave javax
+    why: Does not compile on Boot 3

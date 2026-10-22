@@ -1,0 +1,7 @@
+{
+  "source_plan": "/home/ubuntu/.cursor/plans/walk-22-oct-fresh-boot3.plan.md",
+  "dest": "/agent/piggymetricsJava/.rhm/agent-packs/spec-planner/workspace/walk-22-oct-fresh-p1/final/PLAYBOOK.md",
+  "imported_at_unix": 1792641856.54739,
+  "bytes": 122508,
+  "importer": "scripts/import-cursor-plan.py"
+}

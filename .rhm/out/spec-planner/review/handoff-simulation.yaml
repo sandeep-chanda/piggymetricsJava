@@ -1,0 +1,11 @@
+result: PASS
+critical_unanswered: []
+qa:
+- q: What exact_snippet lands in gateway.yml?
+  a: The STEP-013 exact_snippet final Spring Cloud Gateway server.webflux YAML artifact with four Path routes.
+- q: How does StatisticsServiceClientFallbackTest stay green?
+  a: STEP-029 pins the JUnit5 test artifact using spring.cloud.openfeign.circuitbreaker.enabled=true and keeps fallback classes.
+- q: What happens to turbine-stream-service?
+  a: STEP-018 named deletion removes the module from pom modules compose files and deletes the directory per D-010.
+- q: Which companion covers Dockerfiles?
+  a: STEP-011 exact_companion lists every service Dockerfile final FROM eclipse-temurin:21-jre text.

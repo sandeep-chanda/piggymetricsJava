@@ -1,0 +1,8 @@
+id: R-003
+title: Legacy OAuth2 and javax APIs present
+evidence:
+- '@EnableAuthorizationServer'
+- '@EnableResourceServer'
+- OAuth2FeignRequestInterceptor
+- javax.validation files listed in MUST COVER
+implication: Authorization Server + jakarta migration STEPs required for compile

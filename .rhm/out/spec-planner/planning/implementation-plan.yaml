@@ -1,0 +1,2400 @@
+task_id: walk-22-oct-fresh-p1
+summary: Upgrade piggymetricsJava in place to Spring Boot 3.5.16, Spring Cloud 2025.0.3, Java 21; retire Zuul/Hystrix/Ribbon;
+  migrate OAuth and Jakarta APIs; delete turbine-stream-service.
+plan_key: P1
+steps:
+- depends_on: []
+  requirement_refs:
+  - REQ-P1
+  - REQ-P1-T1
+  decision_refs:
+  - D-001
+  - D-002
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -N validate
+  id: STEP-001
+  title: P1.T1 Set parent Spring Boot 3.5.16 Spring Cloud 2025.0.3 Java 21
+  exact_files:
+  - pom.xml
+  existing_implementation: pom.xml:1-67 parent spring-boot-starter-parent 2.0.3.RELEASE java.version 1.8 spring-cloud.version
+    Finchley.RELEASE
+  line_anchor: pom.xml:L11-L28
+  before_snippet: "<parent>\n\t\t<groupId>org.springframework.boot</groupId>\n\t\t<artifactId>spring-boot-starter-parent</artifactId>\n\
+    \t\t<version>2.0.3.RELEASE</version>\n\t\t<relativePath/>\n\t</parent>"
+  change: Write the root reactor POM so spring-boot-starter-parent is 3.5.16, spring-cloud.version is 2025.0.3, and java.version
+    is 21, keeping all nine modules listed for the P1 platform line including turbine-stream-service.
+  do_not:
+  - Change module business Java sources in this step
+  - Lower java.version below 21
+  - Keep spring-boot-starter-parent at 2.0.3.RELEASE
+  - Ban edits to module Dockerfiles in later steps that raise the JVM image
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n                 xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <groupId>com.piggymetrics</groupId>\n        <artifactId>piggymetrics</artifactId>\n\
+    \        <version>1.0-SNAPSHOT</version>\n        <packaging>pom</packaging>\n        <name>piggymetrics</name>\n\n  \
+    \      <parent>\n                <groupId>org.springframework.boot</groupId>\n                <artifactId>spring-boot-starter-parent</artifactId>\n\
+    \                <version>3.5.16</version>\n                <relativePath/>\n        </parent>\n\n        <properties>\n\
+    \                <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n                <spring-cloud.version>2025.0.3</spring-cloud.version>\n\
+    \                <java.version>21</java.version>\n        </properties>\n\n        <dependencyManagement>\n          \
+    \      <dependencies>\n                        <dependency>\n                                <groupId>org.springframework.cloud</groupId>\n\
+    \                                <artifactId>spring-cloud-dependencies</artifactId>\n                                <version>${spring-cloud.version}</version>\n\
+    \                                <type>pom</type>\n                                <scope>import</scope>\n           \
+    \             </dependency>\n                </dependencies>\n        </dependencyManagement>\n        \n        <modules>\n\
+    \                <module>config</module>\n                <module>monitoring</module>\n                <module>registry</module>\n\
+    \                <module>gateway</module>\n                <module>auth-service</module>\n                <module>account-service</module>\n\
+    \                <module>statistics-service</module>\n                <module>notification-service</module>\n        \
+    \        <module>turbine-stream-service</module>\n        </modules>\n\n</project>\n"
+  exact_commands:
+  - mvn -q -N help:evaluate -Dexpression=project.parent.version -DforceStdout
+  acceptance:
+  - pom.xml parent version equals 3.5.16
+  - pom.xml properties java.version equals 21
+  - pom.xml properties spring-cloud.version equals 2025.0.3
+  rollback: git checkout -- pom.xml
+  why: P1 Done-when requires every module to build on the new Boot 3 / Cloud 2025 / Java 21 line.
+  expected_result: Root POM declares Boot 3.5.16, Cloud 2025.0.3, and Java 21 for the reactor.
+  machine_verify:
+  - grep -q '3.5.16' pom.xml
+  - grep -q '2025.0.3' pom.xml
+  - grep -q '<java.version>21</java.version>' pom.xml
+  files:
+  - pom.xml
+- depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-P1-T2
+  - REQ-P1
+  decision_refs:
+  - D-001
+  - D-003
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl config -am -DskipTests validate
+  id: STEP-002
+  title: P1.T2 Re-resolve config starters on Boot 3 line (3 coordinates)
+  exact_files:
+  - config/pom.xml
+  existing_implementation: config/pom.xml Finchley deps
+  line_anchor: config/pom.xml:dependencies
+  before_snippet: See current config/pom.xml dependency list on Finchley BOM
+  change: Write config/pom.xml dependency list so every starter resolves on Spring Boot 3.5.16 and Spring Cloud 2025.0.3 without
+    Netflix Zuul Hystrix Ribbon oauth legacy artifacts retained beyond what later P2-P5 STEPs remove.
+  do_not:
+  - Leave spring-cloud-starter-netflix-zuul in config/pom.xml after P2 STEPs complete
+  - Pin Spring Boot or Spring Cloud versions inside the module POM
+  - Skip declaring coordinates that Java sources on the target line import
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n        xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <artifactId>config</artifactId>\n        <version>1.0.0-SNAPSHOT</version>\n\
+    \        <packaging>jar</packaging>\n\n        <name>config</name>\n\n        <parent>\n                <groupId>com.piggymetrics</groupId>\n\
+    \                <artifactId>piggymetrics</artifactId>\n                <version>1.0-SNAPSHOT</version>\n        </parent>\n\
+    \n        <dependencies>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-config-server</artifactId>\n                </dependency>\n        \
+    \        <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-security</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-validation</artifactId>\n                </dependency>\n    \
+    \    </dependencies>\n\n        <build>\n                <plugins>\n                        <plugin>\n               \
+    \                 <groupId>org.springframework.boot</groupId>\n                                <artifactId>spring-boot-maven-plugin</artifactId>\n\
+    \                                <configuration>\n                                        <finalName>config</finalName>\n\
+    \                                </configuration>\n                        </plugin>\n                </plugins>\n   \
+    \     </build>\n\n</project>\n"
+  exact_commands:
+  - mvn -pl config -am -DskipTests dependency:resolve
+  acceptance:
+  - config/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl config -am -DskipTests dependency:resolve exits 0
+  rollback: git checkout -- config/pom.xml
+  why: P1.P1.T2 requires re-resolving starters so the module builds on the new platform line.
+  expected_result: config POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  files:
+  - config/pom.xml
+  machine_verify:
+  - mvn -pl config -am -DskipTests dependency:resolve
+- depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-P1-T3
+  - REQ-P1
+  decision_refs:
+  - D-001
+  - D-003
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl monitoring -am -DskipTests validate
+  id: STEP-003
+  title: P1.T3 Re-resolve monitoring starters on Boot 3 line (4 coordinates)
+  exact_files:
+  - monitoring/pom.xml
+  existing_implementation: monitoring/pom.xml hystrix-dashboard
+  line_anchor: monitoring/pom.xml:dependencies
+  before_snippet: See current monitoring/pom.xml dependency list on Finchley BOM
+  change: Write monitoring/pom.xml dependency list so every starter resolves on Spring Boot 3.5.16 and Spring Cloud 2025.0.3
+    without Netflix Zuul Hystrix Ribbon oauth legacy artifacts retained beyond what later P2-P5 STEPs remove.
+  do_not:
+  - Leave spring-cloud-starter-netflix-zuul in monitoring/pom.xml after P2 STEPs complete
+  - Pin Spring Boot or Spring Cloud versions inside the module POM
+  - Skip declaring coordinates that Java sources on the target line import
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n        xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <artifactId>monitoring</artifactId>\n        <version>0.0.1-SNAPSHOT</version>\n\
+    \        <packaging>jar</packaging>\n\n        <name>monitoring</name>\n\n        <parent>\n                <groupId>com.piggymetrics</groupId>\n\
+    \                <artifactId>piggymetrics</artifactId>\n                <version>1.0-SNAPSHOT</version>\n        </parent>\n\
+    \n        <dependencies>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-config</artifactId>\n                </dependency>\n       \
+    \         <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-actuator</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>io.github.resilience4j</groupId>\n\
+    \                        <artifactId>resilience4j-spring-boot3</artifactId>\n                </dependency>\n         \
+    \       <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-web</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-test</artifactId>\n                        <scope>test</scope>\n\
+    \                </dependency>\n        </dependencies>\n\n        <build>\n                <plugins>\n              \
+    \          <plugin>\n                                <groupId>org.springframework.boot</groupId>\n                   \
+    \             <artifactId>spring-boot-maven-plugin</artifactId>\n                                <configuration>\n   \
+    \                                     <finalName>monitoring</finalName>\n                                </configuration>\n\
+    \                        </plugin>\n                </plugins>\n        </build>\n\n</project>\n"
+  exact_commands:
+  - mvn -pl monitoring -am -DskipTests dependency:resolve
+  acceptance:
+  - monitoring/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl monitoring -am -DskipTests dependency:resolve exits 0
+  rollback: git checkout -- monitoring/pom.xml
+  why: P1.P1.T3 requires re-resolving starters so the module builds on the new platform line.
+  expected_result: monitoring POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  files:
+  - monitoring/pom.xml
+  machine_verify:
+  - mvn -pl monitoring -am -DskipTests dependency:resolve
+- depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-P1-T4
+  - REQ-P1
+  decision_refs:
+  - D-001
+  - D-003
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl registry -am -DskipTests validate
+  id: STEP-004
+  title: P1.T4 Re-resolve registry starters on Boot 3 line (4 coordinates)
+  exact_files:
+  - registry/pom.xml
+  existing_implementation: registry/pom.xml eureka-server
+  line_anchor: registry/pom.xml:dependencies
+  before_snippet: See current registry/pom.xml dependency list on Finchley BOM
+  change: Write registry/pom.xml dependency list so every starter resolves on Spring Boot 3.5.16 and Spring Cloud 2025.0.3
+    without Netflix Zuul Hystrix Ribbon oauth legacy artifacts retained beyond what later P2-P5 STEPs remove.
+  do_not:
+  - Leave spring-cloud-starter-netflix-zuul in registry/pom.xml after P2 STEPs complete
+  - Pin Spring Boot or Spring Cloud versions inside the module POM
+  - Skip declaring coordinates that Java sources on the target line import
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n        xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <artifactId>registry</artifactId>\n        <version>0.0.1-SNAPSHOT</version>\n\
+    \        <packaging>jar</packaging>\n\n        <name>registry</name>\n\n        <parent>\n                <groupId>com.piggymetrics</groupId>\n\
+    \                <artifactId>piggymetrics</artifactId>\n                <version>1.0-SNAPSHOT</version>\n        </parent>\n\
+    \n        <dependencies>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>\n                </dependency>\n\
+    \                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                \
+    \        <artifactId>spring-cloud-starter-config</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-actuator</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-test</artifactId>\n                        <scope>test</scope>\n\
+    \                </dependency>\n        </dependencies>\n\n        <build>\n                <plugins>\n              \
+    \          <plugin>\n                                <groupId>org.springframework.boot</groupId>\n                   \
+    \             <artifactId>spring-boot-maven-plugin</artifactId>\n                                <configuration>\n   \
+    \                                     <finalName>registry</finalName>\n                                </configuration>\n\
+    \                        </plugin>\n                </plugins>\n        </build>\n\n</project>\n"
+  exact_commands:
+  - mvn -pl registry -am -DskipTests dependency:resolve
+  acceptance:
+  - registry/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl registry -am -DskipTests dependency:resolve exits 0
+  rollback: git checkout -- registry/pom.xml
+  why: P1.P1.T4 requires re-resolving starters so the module builds on the new platform line.
+  expected_result: registry POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  files:
+  - registry/pom.xml
+  machine_verify:
+  - mvn -pl registry -am -DskipTests dependency:resolve
+- depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-P1-T5
+  - REQ-P1
+  decision_refs:
+  - D-001
+  - D-003
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl gateway -am -DskipTests validate
+  id: STEP-005
+  title: P1.T5 Re-resolve gateway starters on Boot 3 line (7 coordinates)
+  exact_files:
+  - gateway/pom.xml
+  existing_implementation: gateway/pom.xml zuul starter
+  line_anchor: gateway/pom.xml:dependencies
+  before_snippet: See current gateway/pom.xml dependency list on Finchley BOM
+  change: Write gateway/pom.xml dependency list so every starter resolves on Spring Boot 3.5.16 and Spring Cloud 2025.0.3
+    without Netflix Zuul Hystrix Ribbon oauth legacy artifacts retained beyond what later P2-P5 STEPs remove.
+  do_not:
+  - Leave spring-cloud-starter-netflix-zuul in gateway/pom.xml after P2 STEPs complete
+  - Pin Spring Boot or Spring Cloud versions inside the module POM
+  - Skip declaring coordinates that Java sources on the target line import
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n        xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <artifactId>gateway</artifactId>\n        <version>1.0-SNAPSHOT</version>\n\
+    \        <packaging>jar</packaging>\n\n        <name>gateway</name>\n\n        <parent>\n                <groupId>com.piggymetrics</groupId>\n\
+    \                <artifactId>piggymetrics</artifactId>\n                <version>1.0-SNAPSHOT</version>\n        </parent>\n\
+    \n        <dependencies>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>\n                </dependency>\n\
+    \                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                \
+    \        <artifactId>spring-cloud-starter-config</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.cloud</groupId>\n                        <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-loadbalancer</artifactId>\n                </dependency>\n \
+    \               <dependency>\n                        <groupId>io.micrometer</groupId>\n                        <artifactId>micrometer-tracing-bridge-brave</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>\n         \
+    \       </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-test</artifactId>\n                        <scope>test</scope>\n\
+    \                </dependency>\n        </dependencies>\n\n        <build>\n                <plugins>\n              \
+    \          <plugin>\n                                <groupId>org.springframework.boot</groupId>\n                   \
+    \             <artifactId>spring-boot-maven-plugin</artifactId>\n                                <configuration>\n   \
+    \                                     <finalName>gateway</finalName>\n                                </configuration>\n\
+    \                        </plugin>\n                </plugins>\n        </build>\n\n</project>\n"
+  exact_commands:
+  - mvn -pl gateway -am -DskipTests dependency:resolve
+  acceptance:
+  - gateway/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl gateway -am -DskipTests dependency:resolve exits 0
+  rollback: git checkout -- gateway/pom.xml
+  why: P1.P1.T5 requires re-resolving starters so the module builds on the new platform line.
+  expected_result: gateway POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  files:
+  - gateway/pom.xml
+  machine_verify:
+  - mvn -pl gateway -am -DskipTests dependency:resolve
+- depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-P1-T6
+  - REQ-P1
+  decision_refs:
+  - D-001
+  - D-003
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl auth-service -am -DskipTests validate
+  id: STEP-006
+  title: P1.T6 Re-resolve auth-service starters on Boot 3 line (12 coordinates)
+  exact_files:
+  - auth-service/pom.xml
+  existing_implementation: auth-service/pom.xml oauth2 starter
+  line_anchor: auth-service/pom.xml:dependencies
+  before_snippet: See current auth-service/pom.xml dependency list on Finchley BOM
+  change: Write auth-service/pom.xml dependency list so every starter resolves on Spring Boot 3.5.16 and Spring Cloud 2025.0.3
+    without Netflix Zuul Hystrix Ribbon oauth legacy artifacts retained beyond what later P2-P5 STEPs remove.
+  do_not:
+  - Leave spring-cloud-starter-netflix-zuul in auth-service/pom.xml after P2 STEPs complete
+  - Pin Spring Boot or Spring Cloud versions inside the module POM
+  - Skip declaring coordinates that Java sources on the target line import
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n        xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <artifactId>auth-service</artifactId>\n        <version>1.0-SNAPSHOT</version>\n\
+    \        <packaging>jar</packaging>\n\n        <name>auth-service</name>\n\n        <parent>\n                <groupId>com.piggymetrics</groupId>\n\
+    \                <artifactId>piggymetrics</artifactId>\n                <version>1.0-SNAPSHOT</version>\n        </parent>\n\
+    \n        <dependencies>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-data-mongodb</artifactId>\n                </dependency>\n  \
+    \              <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                  \
+    \      <artifactId>spring-cloud-starter-config</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-security</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-oauth2-authorization-server</artifactId>\n                </dependency>\n\
+    \                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                 \
+    \       <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>\n                </dependency>\n         \
+    \       <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-web</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-validation</artifactId>\n                </dependency>\n    \
+    \            <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                    \
+    \    <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n                </dependency>\n            \
+    \    <dependency>\n                        <groupId>io.micrometer</groupId>\n                        <artifactId>micrometer-tracing-bridge-brave</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-loadbalancer</artifactId>\n                </dependency>\n \
+    \               <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                  \
+    \      <artifactId>spring-boot-starter-test</artifactId>\n                        <scope>test</scope>\n              \
+    \  </dependency>\n                <dependency>\n                        <groupId>de.flapdoodle.embed</groupId>\n     \
+    \                   <artifactId>de.flapdoodle.embed.mongo.spring30x</artifactId>\n                        <version>4.11.0</version>\n\
+    \                        <scope>test</scope>\n                </dependency>\n        </dependencies>\n\n        <build>\n\
+    \                <plugins>\n                        <plugin>\n                                <groupId>org.springframework.boot</groupId>\n\
+    \                                <artifactId>spring-boot-maven-plugin</artifactId>\n                                <configuration>\n\
+    \                                        <finalName>auth-service</finalName>\n                                </configuration>\n\
+    \                        </plugin>\n                </plugins>\n        </build>\n\n</project>\n"
+  exact_commands:
+  - mvn -pl auth-service -am -DskipTests dependency:resolve
+  acceptance:
+  - auth-service/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl auth-service -am -DskipTests dependency:resolve exits 0
+  rollback: git checkout -- auth-service/pom.xml
+  why: P1.P1.T6 requires re-resolving starters so the module builds on the new platform line.
+  expected_result: auth-service POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  files:
+  - auth-service/pom.xml
+  machine_verify:
+  - mvn -pl auth-service -am -DskipTests dependency:resolve
+- depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-P1-T7
+  - REQ-P1
+  decision_refs:
+  - D-001
+  - D-003
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl account-service -am -DskipTests validate
+  id: STEP-007
+  title: P1.T7 Re-resolve account-service starters on Boot 3 line (17 coordinates)
+  exact_files:
+  - account-service/pom.xml
+  existing_implementation: account-service/pom.xml hystrix+oauth2
+  line_anchor: account-service/pom.xml:dependencies
+  before_snippet: See current account-service/pom.xml dependency list on Finchley BOM
+  change: Write account-service/pom.xml dependency list so every starter resolves on Spring Boot 3.5.16 and Spring Cloud 2025.0.3
+    without Netflix Zuul Hystrix Ribbon oauth legacy artifacts retained beyond what later P2-P5 STEPs remove.
+  do_not:
+  - Leave spring-cloud-starter-netflix-zuul in account-service/pom.xml after P2 STEPs complete
+  - Pin Spring Boot or Spring Cloud versions inside the module POM
+  - Skip declaring coordinates that Java sources on the target line import
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n        xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <artifactId>account-service</artifactId>\n        <version>1.0-SNAPSHOT</version>\n\
+    \        <packaging>jar</packaging>\n\n        <name>account-service</name>\n\n        <parent>\n                <groupId>com.piggymetrics</groupId>\n\
+    \                <artifactId>piggymetrics</artifactId>\n                <version>1.0-SNAPSHOT</version>\n        </parent>\n\
+    \n        <dependencies>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>\n                </dependency>\n\
+    \                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                 \
+    \       <artifactId>spring-boot-starter-oauth2-client</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-security</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-config</artifactId>\n                </dependency>\n       \
+    \         <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-web</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-validation</artifactId>\n                </dependency>\n    \
+    \            <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                    \
+    \    <artifactId>spring-cloud-starter-openfeign</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.cloud</groupId>\n                        <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-loadbalancer</artifactId>\n                </dependency>\n \
+    \               <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                 \
+    \       <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n                </dependency>\n         \
+    \       <dependency>\n                        <groupId>io.micrometer</groupId>\n                        <artifactId>micrometer-tracing-bridge-brave</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-data-mongodb</artifactId>\n                </dependency>\n  \
+    \              <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                   \
+    \     <artifactId>spring-boot-starter-actuator</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.cloud</groupId>\n                        <artifactId>spring-cloud-starter-bus-amqp</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-test</artifactId>\n                        <scope>test</scope>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>de.flapdoodle.embed</groupId>\n\
+    \                        <artifactId>de.flapdoodle.embed.mongo.spring30x</artifactId>\n                        <version>4.11.0</version>\n\
+    \                        <scope>test</scope>\n                </dependency>\n                <dependency>\n          \
+    \              <groupId>com.jayway.jsonpath</groupId>\n                        <artifactId>json-path</artifactId>\n  \
+    \                      <scope>test</scope>\n                </dependency>\n        </dependencies>\n\n        <build>\n\
+    \                <plugins>\n                        <plugin>\n                                <groupId>org.springframework.boot</groupId>\n\
+    \                                <artifactId>spring-boot-maven-plugin</artifactId>\n                                <configuration>\n\
+    \                                        <finalName>account-service</finalName>\n                                </configuration>\n\
+    \                        </plugin>\n                </plugins>\n        </build>\n\n</project>\n"
+  exact_commands:
+  - mvn -pl account-service -am -DskipTests dependency:resolve
+  acceptance:
+  - account-service/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl account-service -am -DskipTests dependency:resolve exits 0
+  rollback: git checkout -- account-service/pom.xml
+  why: P1.P1.T7 requires re-resolving starters so the module builds on the new platform line.
+  expected_result: account-service POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  files:
+  - account-service/pom.xml
+  machine_verify:
+  - mvn -pl account-service -am -DskipTests dependency:resolve
+- depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-P1-T8
+  - REQ-P1
+  decision_refs:
+  - D-001
+  - D-003
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl statistics-service -am -DskipTests validate
+  id: STEP-008
+  title: P1.T8 Re-resolve statistics-service starters on Boot 3 line (17 coordinates)
+  exact_files:
+  - statistics-service/pom.xml
+  existing_implementation: statistics-service/pom.xml hystrix-stream+oauth2
+  line_anchor: statistics-service/pom.xml:dependencies
+  before_snippet: See current statistics-service/pom.xml dependency list on Finchley BOM
+  change: Write statistics-service/pom.xml dependency list so every starter resolves on Spring Boot 3.5.16 and Spring Cloud
+    2025.0.3 without Netflix Zuul Hystrix Ribbon oauth legacy artifacts retained beyond what later P2-P5 STEPs remove.
+  do_not:
+  - Leave spring-cloud-starter-netflix-zuul in statistics-service/pom.xml after P2 STEPs complete
+  - Pin Spring Boot or Spring Cloud versions inside the module POM
+  - Skip declaring coordinates that Java sources on the target line import
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n        xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <artifactId>statistics-service</artifactId>\n        <version>1.0-SNAPSHOT</version>\n\
+    \        <packaging>jar</packaging>\n\n        <name>statistics-service</name>\n\n        <parent>\n                <groupId>com.piggymetrics</groupId>\n\
+    \                <artifactId>piggymetrics</artifactId>\n                <version>1.0-SNAPSHOT</version>\n        </parent>\n\
+    \n        <dependencies>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>\n                </dependency>\n\
+    \                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                 \
+    \       <artifactId>spring-boot-starter-oauth2-client</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-security</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-config</artifactId>\n                </dependency>\n       \
+    \         <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-web</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-validation</artifactId>\n                </dependency>\n    \
+    \            <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                    \
+    \    <artifactId>spring-cloud-starter-openfeign</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.cloud</groupId>\n                        <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>com.google.guava</groupId>\n\
+    \                        <artifactId>guava</artifactId>\n                        <version>33.4.0-jre</version>\n     \
+    \           </dependency>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-loadbalancer</artifactId>\n                </dependency>\n \
+    \               <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                 \
+    \       <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n                </dependency>\n         \
+    \       <dependency>\n                        <groupId>io.micrometer</groupId>\n                        <artifactId>micrometer-tracing-bridge-brave</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-data-mongodb</artifactId>\n                </dependency>\n  \
+    \              <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                   \
+    \     <artifactId>spring-boot-starter-actuator</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.cloud</groupId>\n                        <artifactId>spring-cloud-starter-bus-amqp</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-test</artifactId>\n                        <scope>test</scope>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>de.flapdoodle.embed</groupId>\n\
+    \                        <artifactId>de.flapdoodle.embed.mongo.spring30x</artifactId>\n                        <version>4.11.0</version>\n\
+    \                        <scope>test</scope>\n                </dependency>\n                <dependency>\n          \
+    \              <groupId>com.jayway.jsonpath</groupId>\n                        <artifactId>json-path</artifactId>\n  \
+    \                      <scope>test</scope>\n                </dependency>\n        </dependencies>\n\n        <build>\n\
+    \                <plugins>\n                        <plugin>\n                                <groupId>org.springframework.boot</groupId>\n\
+    \                                <artifactId>spring-boot-maven-plugin</artifactId>\n                                <configuration>\n\
+    \                                        <finalName>statistics-service</finalName>\n                                </configuration>\n\
+    \                        </plugin>\n                </plugins>\n        </build>\n\n</project>\n"
+  exact_commands:
+  - mvn -pl statistics-service -am -DskipTests dependency:resolve
+  acceptance:
+  - statistics-service/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl statistics-service -am -DskipTests dependency:resolve exits 0
+  rollback: git checkout -- statistics-service/pom.xml
+  why: P1.P1.T8 requires re-resolving starters so the module builds on the new platform line.
+  expected_result: statistics-service POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  files:
+  - statistics-service/pom.xml
+  machine_verify:
+  - mvn -pl statistics-service -am -DskipTests dependency:resolve
+- depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-P1-T9
+  - REQ-P1
+  decision_refs:
+  - D-001
+  - D-003
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl notification-service -am -DskipTests validate
+  id: STEP-009
+  title: P1.T9 Re-resolve notification-service starters on Boot 3 line (17 coordinates)
+  exact_files:
+  - notification-service/pom.xml
+  existing_implementation: notification-service/pom.xml hystrix-stream+oauth2+mail
+  line_anchor: notification-service/pom.xml:dependencies
+  before_snippet: See current notification-service/pom.xml dependency list on Finchley BOM
+  change: Write notification-service/pom.xml dependency list so every starter resolves on Spring Boot 3.5.16 and Spring Cloud
+    2025.0.3 without Netflix Zuul Hystrix Ribbon oauth legacy artifacts retained beyond what later P2-P5 STEPs remove.
+  do_not:
+  - Leave spring-cloud-starter-netflix-zuul in notification-service/pom.xml after P2 STEPs complete
+  - Pin Spring Boot or Spring Cloud versions inside the module POM
+  - Skip declaring coordinates that Java sources on the target line import
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n        xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <artifactId>notification-service</artifactId>\n        <version>1.0.0-SNAPSHOT</version>\n\
+    \        <packaging>jar</packaging>\n\n        <name>notification-service</name>\n\n        <parent>\n               \
+    \ <groupId>com.piggymetrics</groupId>\n                <artifactId>piggymetrics</artifactId>\n                <version>1.0-SNAPSHOT</version>\n\
+    \        </parent>\n\n        <dependencies>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>\n                </dependency>\n\
+    \                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                 \
+    \       <artifactId>spring-boot-starter-oauth2-client</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-security</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-config</artifactId>\n                </dependency>\n       \
+    \         <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-web</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-validation</artifactId>\n                </dependency>\n    \
+    \            <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                    \
+    \    <artifactId>spring-cloud-starter-openfeign</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.cloud</groupId>\n                        <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-loadbalancer</artifactId>\n                </dependency>\n \
+    \               <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                 \
+    \       <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n                </dependency>\n         \
+    \       <dependency>\n                        <groupId>io.micrometer</groupId>\n                        <artifactId>micrometer-tracing-bridge-brave</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-data-mongodb</artifactId>\n                </dependency>\n  \
+    \              <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                   \
+    \     <artifactId>spring-boot-starter-actuator</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.cloud</groupId>\n                        <artifactId>spring-cloud-starter-bus-amqp</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n\
+    \                        <artifactId>spring-boot-starter-test</artifactId>\n                        <scope>test</scope>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>de.flapdoodle.embed</groupId>\n\
+    \                        <artifactId>de.flapdoodle.embed.mongo.spring30x</artifactId>\n                        <version>4.11.0</version>\n\
+    \                        <scope>test</scope>\n                </dependency>\n                <dependency>\n          \
+    \              <groupId>com.jayway.jsonpath</groupId>\n                        <artifactId>json-path</artifactId>\n  \
+    \                      <scope>test</scope>\n                </dependency>\n                <dependency>\n            \
+    \            <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-mail</artifactId>\n\
+    \                </dependency>\n        </dependencies>\n\n        <build>\n                <plugins>\n              \
+    \          <plugin>\n                                <groupId>org.springframework.boot</groupId>\n                   \
+    \             <artifactId>spring-boot-maven-plugin</artifactId>\n                                <configuration>\n   \
+    \                                     <finalName>notification-service</finalName>\n                                </configuration>\n\
+    \                        </plugin>\n                </plugins>\n        </build>\n\n</project>\n"
+  exact_commands:
+  - mvn -pl notification-service -am -DskipTests dependency:resolve
+  acceptance:
+  - notification-service/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl notification-service -am -DskipTests dependency:resolve exits 0
+  rollback: git checkout -- notification-service/pom.xml
+  why: P1.P1.T9 requires re-resolving starters so the module builds on the new platform line.
+  expected_result: notification-service POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  files:
+  - notification-service/pom.xml
+  machine_verify:
+  - mvn -pl notification-service -am -DskipTests dependency:resolve
+- depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-P1-T10
+  - REQ-P1
+  decision_refs:
+  - D-001
+  - D-003
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl turbine-stream-service -am -DskipTests validate
+  id: STEP-010
+  title: P1.T10 Re-resolve turbine-stream-service starters on Boot 3 line (6 coordinates)
+  exact_files:
+  - turbine-stream-service/pom.xml
+  existing_implementation: turbine-stream-service/pom.xml turbine-stream
+  line_anchor: turbine-stream-service/pom.xml:dependencies
+  before_snippet: See current turbine-stream-service/pom.xml dependency list on Finchley BOM
+  change: Write turbine-stream-service/pom.xml dependency list so every starter resolves on Spring Boot 3.5.16 and Spring
+    Cloud 2025.0.3 without Netflix Zuul Hystrix Ribbon oauth legacy artifacts retained beyond what later P2-P5 STEPs remove.
+  do_not:
+  - Leave spring-cloud-starter-netflix-zuul in turbine-stream-service/pom.xml after P2 STEPs complete
+  - Pin Spring Boot or Spring Cloud versions inside the module POM
+  - Skip declaring coordinates that Java sources on the target line import
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n        xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <artifactId>turbine-stream-service</artifactId>\n        <version>0.0.1-SNAPSHOT</version>\n\
+    \        <packaging>jar</packaging>\n\n        <name>turbine-stream-service</name>\n\n        <parent>\n             \
+    \   <groupId>com.piggymetrics</groupId>\n                <artifactId>piggymetrics</artifactId>\n                <version>1.0-SNAPSHOT</version>\n\
+    \        </parent>\n\n        <dependencies>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-config</artifactId>\n                </dependency>\n       \
+    \         <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                       \
+    \ <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n                </dependency>\n               \
+    \ <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n                        <artifactId>spring-cloud-starter-loadbalancer</artifactId>\n\
+    \                </dependency>\n                <dependency>\n                        <groupId>org.springframework.cloud</groupId>\n\
+    \                        <artifactId>spring-cloud-starter-stream-rabbit</artifactId>\n                </dependency>\n\
+    \                <dependency>\n                        <groupId>org.springframework.boot</groupId>\n                 \
+    \       <artifactId>spring-boot-starter-actuator</artifactId>\n                </dependency>\n                <dependency>\n\
+    \                        <groupId>org.springframework.boot</groupId>\n                        <artifactId>spring-boot-starter-test</artifactId>\n\
+    \                        <scope>test</scope>\n                </dependency>\n        </dependencies>\n\n        <build>\n\
+    \                <plugins>\n                        <plugin>\n                                <groupId>org.springframework.boot</groupId>\n\
+    \                                <artifactId>spring-boot-maven-plugin</artifactId>\n                                <configuration>\n\
+    \                                        <finalName>turbine-stream-service</finalName>\n                             \
+    \   </configuration>\n                        </plugin>\n                </plugins>\n        </build>\n\n</project>\n"
+  exact_commands:
+  - mvn -pl turbine-stream-service -am -DskipTests dependency:resolve
+  acceptance:
+  - turbine-stream-service/pom.xml dependencies match the pinned exact_snippet
+  - mvn -pl turbine-stream-service -am -DskipTests dependency:resolve exits 0
+  rollback: git checkout -- turbine-stream-service/pom.xml
+  why: P1.P1.T10 requires re-resolving starters so the module builds on the new platform line.
+  expected_result: turbine-stream-service POM resolves on Boot 3.5.16 / Cloud 2025.0.3 with the pinned dependency set.
+  files:
+  - turbine-stream-service/pom.xml
+  machine_verify:
+  - mvn -pl turbine-stream-service -am -DskipTests dependency:resolve
+- depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-P1
+  - REQ-JVM-IMAGES
+  decision_refs:
+  - D-002
+  evidence_refs:
+  - R-001
+  companion_required: true
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - rg -c 'eclipse-temurin:21-jre' config/Dockerfile gateway/Dockerfile auth-service/Dockerfile account-service/Dockerfile
+  id: STEP-011
+  title: Raise every runtime Dockerfile FROM to eclipse-temurin Java 21 JRE
+  exact_files:
+  - config/Dockerfile
+  - monitoring/Dockerfile
+  - registry/Dockerfile
+  - gateway/Dockerfile
+  - auth-service/Dockerfile
+  - account-service/Dockerfile
+  - statistics-service/Dockerfile
+  - notification-service/Dockerfile
+  - turbine-stream-service/Dockerfile
+  existing_implementation: All service Dockerfiles use FROM java:8-jre
+  line_anchor: '*/Dockerfile:L1'
+  before_snippet: FROM java:8-jre
+  change: Set every Java service runtime image FROM line to eclipse-temurin:21-jre so the container JVM major matches java.version
+    21 from the parent POM. Keep ADD jar path, CMD, EXPOSE, and MAINTAINER lines.
+  do_not:
+  - Leave any service Dockerfile on java:8-jre
+  - Change mongodb/Dockerfile in this step
+  - Forbid Dockerfile edits while raising java.version
+  exact_snippet: 'FROM eclipse-temurin:21-jre
+
+    MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+
+
+    ADD ./target/gateway.jar /app/
+
+    CMD ["java", "-Xmx200m", "-jar", "/app/gateway.jar"]
+
+
+    EXPOSE 4000
+
+    '
+  exact_companion: '# config/Dockerfile
+
+    FROM eclipse-temurin:21-jre
+
+    MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+
+
+    ADD ./target/config.jar /app/
+
+    CMD ["java", "-Xmx200m", "-jar", "/app/config.jar"]
+
+
+    EXPOSE 8888
+
+
+    ---
+
+    # monitoring/Dockerfile
+
+    FROM eclipse-temurin:21-jre
+
+    MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+
+
+    ADD ./target/monitoring.jar /app/
+
+    CMD ["java", "-Xmx200m", "-jar", "/app/monitoring.jar"]
+
+
+    EXPOSE 8080
+
+
+    ---
+
+    # registry/Dockerfile
+
+    FROM eclipse-temurin:21-jre
+
+    MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+
+
+    ADD ./target/registry.jar /app/
+
+    CMD ["java", "-Xmx200m", "-jar", "/app/registry.jar"]
+
+
+    EXPOSE 8761
+
+
+    ---
+
+    # gateway/Dockerfile
+
+    FROM eclipse-temurin:21-jre
+
+    MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+
+
+    ADD ./target/gateway.jar /app/
+
+    CMD ["java", "-Xmx200m", "-jar", "/app/gateway.jar"]
+
+
+    EXPOSE 4000
+
+
+    ---
+
+    # auth-service/Dockerfile
+
+    FROM eclipse-temurin:21-jre
+
+    MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+
+
+    ADD ./target/auth-service.jar /app/
+
+    CMD ["java", "-Xmx200m", "-jar", "/app/auth-service.jar"]
+
+
+    EXPOSE 5000
+
+
+    ---
+
+    # account-service/Dockerfile
+
+    FROM eclipse-temurin:21-jre
+
+    MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+
+
+    ADD ./target/account-service.jar /app/
+
+    CMD ["java", "-Xmx200m", "-jar", "/app/account-service.jar"]
+
+
+    EXPOSE 6000
+
+
+    ---
+
+    # statistics-service/Dockerfile
+
+    FROM eclipse-temurin:21-jre
+
+    MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+
+
+    ADD ./target/statistics-service.jar /app/
+
+    CMD ["java", "-Xmx200m", "-jar", "/app/statistics-service.jar"]
+
+
+    EXPOSE 7000
+
+
+    ---
+
+    # notification-service/Dockerfile
+
+    FROM eclipse-temurin:21-jre
+
+    MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+
+
+    ADD ./target/notification-service.jar /app/
+
+    CMD ["java", "-Xmx200m", "-jar", "/app/notification-service.jar"]
+
+
+    EXPOSE 8000
+
+
+    ---
+
+    # turbine-stream-service/Dockerfile
+
+    FROM eclipse-temurin:21-jre
+
+    MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+
+
+    ADD ./target/turbine-stream-service.jar /app/
+
+    CMD ["java", "-Xmx200m", "-jar", "/app/turbine-stream-service.jar"]
+
+
+    EXPOSE 8989
+
+    '
+  exact_commands:
+  - rg -n '^FROM ' config/Dockerfile monitoring/Dockerfile registry/Dockerfile gateway/Dockerfile auth-service/Dockerfile
+    account-service/Dockerfile statistics-service/Dockerfile notification-service/Dockerfile turbine-stream-service/Dockerfile
+  acceptance:
+  - Every listed Dockerfile FROM line equals eclipse-temurin:21-jre
+  rollback: git checkout -- config/Dockerfile monitoring/Dockerfile registry/Dockerfile gateway/Dockerfile auth-service/Dockerfile
+    account-service/Dockerfile statistics-service/Dockerfile notification-service/Dockerfile turbine-stream-service/Dockerfile
+  why: Raising the JVM major on the parent requires every runtime image to move to that JVM major.
+  expected_result: All nine Java service Dockerfiles boot eclipse-temurin:21-jre.
+  files:
+  - config/Dockerfile
+  - monitoring/Dockerfile
+  - registry/Dockerfile
+  - gateway/Dockerfile
+  - auth-service/Dockerfile
+  - account-service/Dockerfile
+  - statistics-service/Dockerfile
+  - notification-service/Dockerfile
+  - turbine-stream-service/Dockerfile
+  machine_verify:
+  - rg -n '^FROM ' config/Dockerfile monitoring/Dockerfile registry/Dockerfile gateway/Dockerfile auth-service/Dockerfile
+    account-service/Dockerfile statistics-service/Dockerfile notification-service/Dockerfile turbine-stream-service/Dockerfile
+- depends_on:
+  - STEP-005
+  requirement_refs:
+  - REQ-P2
+  - REQ-P2-T1
+  decision_refs:
+  - D-004
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl gateway -am test
+  id: STEP-012
+  title: P2.T1 Remove EnableZuulProxy from GatewayApplication
+  exact_files:
+  - gateway/src/main/java/com/piggymetrics/gateway/GatewayApplication.java
+  existing_implementation: gateway/.../GatewayApplication.java:L10 @EnableZuulProxy
+  line_anchor: GatewayApplication.java:L10
+  before_snippet: '@EnableZuulProxy
+
+    public class GatewayApplication {'
+  change: Write GatewayApplication without @EnableZuulProxy and without the netflix.zuul import. Spring Cloud Gateway server
+    webflux auto-configuration activates from the starter on the classpath; discovery stays enabled.
+  do_not:
+  - Retain @EnableZuulProxy
+  - Add servlet spring-boot-starter-web to gateway
+  - Invent a custom RouteLocator Java bean when YAML routes cover the four services
+  exact_snippet: "package com.piggymetrics.gateway;\n\nimport org.springframework.boot.SpringApplication;\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\n\
+    import org.springframework.cloud.client.discovery.EnableDiscoveryClient;\n\n@SpringBootApplication\n@EnableDiscoveryClient\n\
+    public class GatewayApplication {\n\n        public static void main(String[] args) {\n                SpringApplication.run(GatewayApplication.class,\
+    \ args);\n        }\n}\n"
+  exact_commands:
+  - mvn -pl gateway -am test
+  acceptance:
+  - GatewayApplication.java contains no EnableZuulProxy symbol
+  - mvn -pl gateway -am test exits 0
+  rollback: git checkout -- gateway/src/main/java/com/piggymetrics/gateway/GatewayApplication.java
+  why: P2 retires Zuul in place; the annotation marker must leave the gateway bootstrap class.
+  expected_result: Gateway bootstraps via Spring Cloud Gateway without Zuul annotations.
+  files:
+  - gateway/src/main/java/com/piggymetrics/gateway/GatewayApplication.java
+  machine_verify:
+  - mvn -pl gateway -am test
+- depends_on:
+  - STEP-012
+  - STEP-005
+  requirement_refs:
+  - REQ-P2
+  decision_refs:
+  - D-004
+  - D-005
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl gateway,config -am test
+  id: STEP-013
+  title: P2.T4-T18 Write gateway.yml Spring Cloud Gateway routes and timeouts
+  exact_files:
+  - config/src/main/resources/shared/gateway.yml
+  existing_implementation: config/src/main/resources/shared/gateway.yml zuul.* ribbon.* hystrix.* keys
+  line_anchor: gateway.yml:L1-L45
+  before_snippet: "zuul:\n  ignoredServices: '*'\n  host:\n    connect-timeout-millis: 20000\n    socket-timeout-millis: 20000"
+  change: Write config shared gateway.yml using spring.cloud.gateway.server.webflux routes for auth-service, account-service,
+    statistics-service, and notification-service. Map former zuul.ignoredServices to discovery.locator.enabled false. Map
+    zuul.host connect and socket timeouts to httpclient connect-timeout 20000 and response-timeout 20s. Use http://auth-service:5000
+    for auth and lb:// serviceIds for the three Eureka-backed services. Omit StripPrefix filters because former stripPrefix
+    was false. Remove every zuul., ribbon., and hystrix. key from this file.
+  do_not:
+  - Leave any zuul. key
+  - Leave any ribbon. key
+  - Leave any hystrix. key
+  - Use StripPrefix filters that would drop /accounts /statistics /notifications /uaa prefixes
+  exact_snippet: "spring:\n  cloud:\n    gateway:\n      server:\n        webflux:\n          discovery:\n            locator:\n\
+    \              enabled: false\n          httpclient:\n            connect-timeout: 20000\n            response-timeout:\
+    \ 20s\n          routes:\n            - id: auth-service\n              uri: http://auth-service:5000\n              predicates:\n\
+    \                - Path=/uaa/**\n            - id: account-service\n              uri: lb://account-service\n        \
+    \      predicates:\n                - Path=/accounts/**\n            - id: statistics-service\n              uri: lb://statistics-service\n\
+    \              predicates:\n                - Path=/statistics/**\n            - id: notification-service\n          \
+    \    uri: lb://notification-service\n              predicates:\n                - Path=/notifications/**\n    loadbalancer:\n\
+    \      enabled: true\n\nresilience4j:\n  timelimiter:\n    configs:\n      default:\n        timeoutDuration: 20s\n\n\
+    server:\n  port: 4000\n"
+  exact_commands:
+  - rg -n 'zuul\.|ribbon\.|hystrix\.' config/src/main/resources/shared/gateway.yml; test $? -eq 1
+  acceptance:
+  - gateway.yml has zero matches for zuul. ribbon. or hystrix. keys
+  - gateway.yml declares spring.cloud.gateway.server.webflux.routes for the four services
+  - Path predicates remain /uaa/** /accounts/** /statistics/** /notifications/**
+  rollback: git checkout -- config/src/main/resources/shared/gateway.yml
+  why: P2 Done-when requires no Zuul config keys and the Gateway successor keys in place.
+  expected_result: Shared gateway.yml is pure Spring Cloud Gateway webflux configuration.
+  files:
+  - config/src/main/resources/shared/gateway.yml
+  machine_verify:
+  - rg -n 'zuul\.|ribbon\.|hystrix\.' config/src/main/resources/shared/gateway.yml; test $? -eq 1
+- depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-P3
+  - REQ-P3-T3
+  decision_refs:
+  - D-006
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl account-service -am test
+  id: STEP-014
+  title: P3.T3 Write shared application.yml Resilience4j timeout keys
+  exact_files:
+  - config/src/main/resources/shared/application.yml
+  existing_implementation: application.yml hystrix.command.default.execution.isolation.thread.timeoutInMilliseconds 10000
+  line_anchor: application.yml:L11
+  before_snippet: "hystrix:\n  command:\n    default:\n      execution:\n        isolation:\n          thread:\n         \
+    \   timeoutInMilliseconds: 10000"
+  change: Write shared application.yml so the former Hystrix 10000ms timeout is resilience4j.timelimiter.configs.default.timeoutDuration
+    10s, and migrate security.oauth2.resource.user-info-uri into spring.security.oauth2.resourceserver.opaque-token introspection
+    settings used by resource servers on Boot 3.
+  do_not:
+  - Leave hystrix. keys in application.yml
+  - Keep security.oauth2.resource.user-info-uri as the sole resource-server property
+  exact_snippet: "logging:\n  level:\n    org.springframework.security: INFO\n\nresilience4j:\n  timelimiter:\n    configs:\n\
+    \      default:\n        timeoutDuration: 10s\n\neureka:\n  instance:\n    prefer-ip-address: true\n  client:\n    serviceUrl:\n\
+    \      defaultZone: http://registry:8761/eureka/\n\nspring:\n  security:\n    oauth2:\n      resourceserver:\n       \
+    \ opaque-token:\n          introspection-uri: http://auth-service:5000/uaa/oauth2/introspect\n          client-id: account-service\n\
+    \          client-secret: ${ACCOUNT_SERVICE_PASSWORD}\n  rabbitmq:\n    host: rabbitmq\n"
+  exact_commands:
+  - rg -n '^hystrix:' config/src/main/resources/shared/application.yml; test $? -eq 1
+  acceptance:
+  - application.yml has no hystrix keys
+  - resilience4j.timelimiter.configs.default.timeoutDuration equals 10s
+  rollback: git checkout -- config/src/main/resources/shared/application.yml
+  why: P3 retires Hystrix config keys from the shared application defaults.
+  expected_result: Shared application.yml uses Resilience4j time limiter defaults.
+  files:
+  - config/src/main/resources/shared/application.yml
+  machine_verify:
+  - rg -n '^hystrix:' config/src/main/resources/shared/application.yml; test $? -eq 1
+- depends_on:
+  - STEP-007
+  - STEP-014
+  requirement_refs:
+  - REQ-P3
+  - REQ-P3-T2
+  - REQ-P3-T11
+  decision_refs:
+  - D-006
+  - D-007
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl account-service -am test
+  id: STEP-015
+  title: P3.T2 P3.T11 Write account-service.yml Feign circuitbreaker enabled
+  exact_files:
+  - config/src/main/resources/shared/account-service.yml
+  existing_implementation: account-service.yml feign.hystrix.enabled true
+  line_anchor: account-service.yml:L26
+  before_snippet: "feign:\n  hystrix:\n    enabled: true"
+  change: Write account-service.yml with spring.cloud.openfeign.circuitbreaker.enabled true, Boot 3 spring.security.oauth2.client
+    registration for account-service client_credentials, and the existing MongoDB and server.servlet.context-path settings.
+    Remove feign.hystrix.enabled and legacy security.oauth2.client flat keys.
+  do_not:
+  - Leave feign.hystrix.enabled
+  - Drop spring.cloud.openfeign.circuitbreaker.enabled
+  exact_snippet: "spring:\n  security:\n    oauth2:\n      client:\n        registration:\n          account-service:\n  \
+    \          client-id: account-service\n            client-secret: ${ACCOUNT_SERVICE_PASSWORD}\n            authorization-grant-type:\
+    \ client_credentials\n            scope: server\n        provider:\n          auth-service:\n            token-uri: http://auth-service:5000/uaa/oauth2/token\n\
+    \  data:\n    mongodb:\n      host: account-mongodb\n      username: user\n      password: ${MONGODB_PASSWORD}\n     \
+    \ database: piggymetrics\n      port: 27017\n  cloud:\n    openfeign:\n      circuitbreaker:\n        enabled: true\n\n\
+    server:\n  servlet:\n    context-path: /accounts\n  port: 6000\n"
+  exact_commands:
+  - rg -n 'feign\.hystrix|hystrix' config/src/main/resources/shared/account-service.yml; test $? -eq 1
+  acceptance:
+  - account-service.yml sets spring.cloud.openfeign.circuitbreaker.enabled to true
+  - No feign.hystrix key remains
+  rollback: git checkout -- config/src/main/resources/shared/account-service.yml
+  why: Feign Hystrix toggle becomes OpenFeign circuitbreaker on Resilience4j.
+  expected_result: account-service.yml enables Feign circuit breakers without Hystrix keys.
+  files:
+  - config/src/main/resources/shared/account-service.yml
+  machine_verify:
+  - rg -n 'feign\.hystrix|hystrix' config/src/main/resources/shared/account-service.yml; test $? -eq 1
+- depends_on:
+  - STEP-007
+  requirement_refs:
+  - REQ-P3
+  - REQ-P3-T1
+  - REQ-OAUTH
+  decision_refs:
+  - D-006
+  - D-008
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl account-service -am -Dtest=StatisticsServiceClientFallbackTest test
+  id: STEP-016
+  title: P3.T1 Write AccountApplication without EnableCircuitBreaker
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/AccountApplication.java
+  existing_implementation: AccountApplication.java @EnableCircuitBreaker @EnableOAuth2Client @EnableGlobalMethodSecurity
+  line_anchor: AccountApplication.java:L15
+  before_snippet: '@EnableCircuitBreaker'
+  change: Write AccountApplication with @EnableFeignClients, @EnableDiscoveryClient, and @EnableMethodSecurity(prePostEnabled
+    = true). Omit @EnableCircuitBreaker and @EnableOAuth2Client because Resilience4j Feign circuit breaking and oauth2 client
+    auto-configuration activate from the starters.
+  do_not:
+  - Retain @EnableCircuitBreaker
+  - Retain @EnableOAuth2Client
+  - Retain @EnableGlobalMethodSecurity
+  exact_snippet: "package com.piggymetrics.account;\n\nimport org.springframework.boot.SpringApplication;\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\n\
+    import org.springframework.cloud.client.discovery.EnableDiscoveryClient;\nimport org.springframework.cloud.openfeign.EnableFeignClients;\n\
+    import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;\n\n@SpringBootApplication\n\
+    @EnableDiscoveryClient\n@EnableFeignClients\n@EnableMethodSecurity(prePostEnabled = true)\npublic class AccountApplication\
+    \ {\n\n        public static void main(String[] args) {\n                SpringApplication.run(AccountApplication.class,\
+    \ args);\n        }\n\n}\n"
+  exact_commands:
+  - mvn -pl account-service -am test
+  acceptance:
+  - AccountApplication has no EnableCircuitBreaker symbol
+  - AccountApplication has no EnableOAuth2Client symbol
+  rollback: git checkout -- account-service/src/main/java/com/piggymetrics/account/AccountApplication.java
+  why: Hystrix EnableCircuitBreaker is removed on Spring Cloud 2025; Feign+Resilience4j covers breakers.
+  expected_result: Account service boots with method security and Feign on the Boot 3 line.
+  files:
+  - account-service/src/main/java/com/piggymetrics/account/AccountApplication.java
+  machine_verify:
+  - mvn -pl account-service -am test
+- depends_on:
+  - STEP-003
+  requirement_refs:
+  - REQ-P3
+  - REQ-P3-T5
+  - REQ-P5-T1
+  decision_refs:
+  - D-009
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl monitoring -am test
+  id: STEP-017
+  title: P3.T5 P5.T1 Retire EnableHystrixDashboard on monitoring
+  exact_files:
+  - monitoring/src/main/java/com/piggymetrics/monitoring/MonitoringApplication.java
+  existing_implementation: MonitoringApplication.java @EnableHystrixDashboard
+  line_anchor: MonitoringApplication.java:L8
+  before_snippet: '@EnableHystrixDashboard
+
+    public class MonitoringApplication {'
+  change: Write MonitoringApplication as a plain @SpringBootApplication. Decision D-009 records that monitoring no longer
+    consumes Hystrix streams; actuator and resilience4j-spring-boot3 from STEP-003 expose health only.
+  do_not:
+  - Retain @EnableHystrixDashboard
+  - Reintroduce spring-cloud-starter-netflix-hystrix-dashboard
+  exact_snippet: "package com.piggymetrics.monitoring;\n\nimport org.springframework.boot.SpringApplication;\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\n\
+    \n@SpringBootApplication\npublic class MonitoringApplication {\n\n        public static void main(String[] args) {\n \
+    \               SpringApplication.run(MonitoringApplication.class, args);\n        }\n}\n"
+  exact_commands:
+  - mvn -pl monitoring -am test
+  acceptance:
+  - MonitoringApplication contains no EnableHystrixDashboard
+  - monitoring/pom.xml contains no hystrix-dashboard artifact
+  rollback: git checkout -- monitoring/src/main/java/com/piggymetrics/monitoring/MonitoringApplication.java
+  why: 'P5.T1 consumer decision: monitoring stops reading retired Hystrix streams.'
+  expected_result: Monitoring module is an Actuator host without Hystrix Dashboard.
+  files:
+  - monitoring/src/main/java/com/piggymetrics/monitoring/MonitoringApplication.java
+  machine_verify:
+  - mvn -pl monitoring -am test
+- depends_on:
+  - STEP-010
+  - STEP-017
+  requirement_refs:
+  - REQ-P5
+  - REQ-P5-T2
+  - REQ-TURBINE
+  decision_refs:
+  - D-010
+  evidence_refs:
+  - R-001
+  companion_required: true
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -q -N help:evaluate -Dexpression=project.modules -DforceStdout
+  id: STEP-018
+  title: P5.T2 Named deletion of turbine-stream-service module
+  exact_files:
+  - pom.xml
+  - docker-compose.yml
+  - docker-compose.dev.yml
+  existing_implementation: pom.xml module turbine-stream-service; TurbineStreamServiceApplication @EnableTurbineStream; compose
+    services
+  line_anchor: pom.xml:modules
+  before_snippet: <module>turbine-stream-service</module>
+  change: Write the root pom.xml modules list without turbine-stream-service (pinned final POM). Delete the turbine-stream-service
+    module directory and remove turbine-stream-service service blocks from docker-compose.yml and docker-compose.dev.yml.
+    Decision D-010 records named deletion because Turbine Stream has no Spring Cloud 2025 successor consuming Hystrix streams.
+  do_not:
+  - Keep @EnableTurbineStream sources in the reactor
+  - Leave turbine-stream-service in parent modules
+  - Ban deletion of turbine-stream-service/pom.xml
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n                 xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <groupId>com.piggymetrics</groupId>\n        <artifactId>piggymetrics</artifactId>\n\
+    \        <version>1.0-SNAPSHOT</version>\n        <packaging>pom</packaging>\n        <name>piggymetrics</name>\n\n  \
+    \      <parent>\n                <groupId>org.springframework.boot</groupId>\n                <artifactId>spring-boot-starter-parent</artifactId>\n\
+    \                <version>3.5.16</version>\n                <relativePath/>\n        </parent>\n\n        <properties>\n\
+    \                <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n                <spring-cloud.version>2025.0.3</spring-cloud.version>\n\
+    \                <java.version>21</java.version>\n        </properties>\n\n        <dependencyManagement>\n          \
+    \      <dependencies>\n                        <dependency>\n                                <groupId>org.springframework.cloud</groupId>\n\
+    \                                <artifactId>spring-cloud-dependencies</artifactId>\n                                <version>${spring-cloud.version}</version>\n\
+    \                                <type>pom</type>\n                                <scope>import</scope>\n           \
+    \             </dependency>\n                </dependencies>\n        </dependencyManagement>\n        \n        <modules>\n\
+    \                <module>config</module>\n                <module>monitoring</module>\n                <module>registry</module>\n\
+    \                <module>gateway</module>\n                <module>auth-service</module>\n                <module>account-service</module>\n\
+    \                <module>statistics-service</module>\n                <module>notification-service</module>\n        </modules>\n\
+    \n</project>\n"
+  exact_companion: docker-compose.yml and docker-compose.dev.yml contain no turbine-stream-service service key; the turbine-stream-service/
+    directory is absent from the worktree.
+  exact_commands:
+  - test ! -d turbine-stream-service
+  - rg -n 'turbine-stream-service' pom.xml docker-compose.yml docker-compose.dev.yml; test $? -eq 1
+  acceptance:
+  - pom.xml modules list omits turbine-stream-service
+  - turbine-stream-service directory is deleted
+  - compose files have no turbine-stream-service service
+  rollback: git checkout -- pom.xml docker-compose.yml docker-compose.dev.yml; git checkout HEAD -- turbine-stream-service
+  why: MUST COVER requires Turbine Stream replacement or named deletion; P5.T2 records the consumer decision as deletion.
+  expected_result: Turbine Stream module is removed from the reactor and compose topology.
+  creates_file: false
+  files:
+  - pom.xml
+  - docker-compose.yml
+  - docker-compose.dev.yml
+  machine_verify:
+  - test ! -d turbine-stream-service
+  - rg -n 'turbine-stream-service' pom.xml docker-compose.yml docker-compose.dev.yml; test $? -eq 1
+- depends_on:
+  - STEP-002
+  requirement_refs:
+  - REQ-SEC-ADAPTER
+  - REQ-SEC-MATCHERS
+  decision_refs:
+  - D-011
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl config -am -DskipTests compile
+  id: STEP-019
+  title: Write config SecurityConfig as SecurityFilterChain requestMatchers
+  exact_files:
+  - config/src/main/java/com/piggymetrics/config/SecurityConfig.java
+  existing_implementation: SecurityConfig extends WebSecurityConfigurerAdapter with antMatchers
+  line_anchor: SecurityConfig.java:L11
+  before_snippet: public class SecurityConfig extends WebSecurityConfigurerAdapter
+  change: Write SecurityConfig as a @Bean SecurityFilterChain using authorizeHttpRequests and requestMatchers("/actuator/**")
+    plus httpBasic. Omit WebSecurityConfigurerAdapter and antMatchers.
+  do_not:
+  - Extend WebSecurityConfigurerAdapter
+  - Call antMatchers
+  - Leave csrf enabled for config server
+  exact_snippet: "package com.piggymetrics.config;\n\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\n\
+    import org.springframework.security.config.Customizer;\nimport org.springframework.security.config.annotation.web.builders.HttpSecurity;\n\
+    import org.springframework.security.web.SecurityFilterChain;\n\n@Configuration\npublic class SecurityConfig {\n\n    \
+    \    @Bean\n        SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {\n                http.csrf(csrf\
+    \ -> csrf.disable());\n                http.authorizeHttpRequests(auth -> auth\n                                .requestMatchers(\"\
+    /actuator/**\").permitAll()\n                                .anyRequest().authenticated())\n                        \
+    \        .httpBasic(Customizer.withDefaults());\n                return http.build();\n        }\n}\n"
+  exact_commands:
+  - mvn -pl config -am -DskipTests compile
+  acceptance:
+  - SecurityConfig.java contains SecurityFilterChain
+  - SecurityConfig.java contains no WebSecurityConfigurerAdapter
+  - SecurityConfig.java contains no antMatchers
+  rollback: git checkout -- config/src/main/java/com/piggymetrics/config/SecurityConfig.java
+  why: Spring Security 6 removed WebSecurityConfigurerAdapter and antMatchers.
+  expected_result: Config server security uses SecurityFilterChain with requestMatchers.
+  files:
+  - config/src/main/java/com/piggymetrics/config/SecurityConfig.java
+  machine_verify:
+  - mvn -pl config -am -DskipTests compile
+- depends_on:
+  - STEP-006
+  requirement_refs:
+  - REQ-SEC-ADAPTER
+  decision_refs:
+  - D-011
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl auth-service -am test
+  id: STEP-020
+  title: Write auth WebSecurityConfig as SecurityFilterChain
+  exact_files:
+  - auth-service/src/main/java/com/piggymetrics/auth/config/WebSecurityConfig.java
+  existing_implementation: WebSecurityConfig extends WebSecurityConfigurerAdapter
+  line_anchor: WebSecurityConfig.java:L17
+  before_snippet: public class WebSecurityConfig extends WebSecurityConfigurerAdapter
+  change: Write WebSecurityConfig with SecurityFilterChain, PasswordEncoder BCryptPasswordEncoder bean, and AuthenticationManager
+    from AuthenticationConfiguration. Wire MongoUserDetailsService via constructor. Omit WebSecurityConfigurerAdapter.
+  do_not:
+  - Extend WebSecurityConfigurerAdapter
+  - Use NoOpPasswordEncoder for user passwords
+  exact_snippet: "package com.piggymetrics.auth.config;\n\nimport com.piggymetrics.auth.service.security.MongoUserDetailsService;\n\
+    import org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\nimport\
+    \ org.springframework.security.authentication.AuthenticationManager;\nimport org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;\n\
+    import org.springframework.security.config.annotation.web.builders.HttpSecurity;\nimport org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;\n\
+    import org.springframework.security.crypto.password.PasswordEncoder;\nimport org.springframework.security.web.SecurityFilterChain;\n\
+    \n@Configuration\npublic class WebSecurityConfig {\n\n        private final MongoUserDetailsService userDetailsService;\n\
+    \n        public WebSecurityConfig(MongoUserDetailsService userDetailsService) {\n                this.userDetailsService\
+    \ = userDetailsService;\n        }\n\n        @Bean\n        SecurityFilterChain securityFilterChain(HttpSecurity http)\
+    \ throws Exception {\n                http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())\n        \
+    \                        .csrf(csrf -> csrf.disable())\n                                .userDetailsService(userDetailsService);\n\
+    \                return http.build();\n        }\n\n        @Bean\n        PasswordEncoder passwordEncoder() {\n     \
+    \           return new BCryptPasswordEncoder();\n        }\n\n        @Bean\n        AuthenticationManager authenticationManager(AuthenticationConfiguration\
+    \ configuration) throws Exception {\n                return configuration.getAuthenticationManager();\n        }\n}\n"
+  exact_commands:
+  - mvn -pl auth-service -am -DskipTests compile
+  acceptance:
+  - WebSecurityConfig.java contains SecurityFilterChain
+  - WebSecurityConfig.java contains no WebSecurityConfigurerAdapter
+  rollback: git checkout -- auth-service/src/main/java/com/piggymetrics/auth/config/WebSecurityConfig.java
+  why: Auth service must compile on Spring Security 6 without the removed adapter base class.
+  expected_result: Auth WebSecurityConfig exposes SecurityFilterChain and AuthenticationManager beans.
+  files:
+  - auth-service/src/main/java/com/piggymetrics/auth/config/WebSecurityConfig.java
+  machine_verify:
+  - mvn -pl auth-service -am -DskipTests compile
+- depends_on:
+  - STEP-006
+  - STEP-020
+  requirement_refs:
+  - REQ-OAUTH
+  - REQ-OAUTH-AUTH
+  decision_refs:
+  - D-008
+  evidence_refs:
+  - R-001
+  companion_required: true
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl auth-service -am test
+  id: STEP-021
+  title: Write auth OAuth2AuthorizationConfig on Spring Authorization Server
+  exact_files:
+  - auth-service/src/main/java/com/piggymetrics/auth/config/OAuth2AuthorizationConfig.java
+  - auth-service/src/main/java/com/piggymetrics/auth/AuthApplication.java
+  existing_implementation: OAuth2AuthorizationConfig @EnableAuthorizationServer AuthorizationServerConfigurerAdapter; AuthApplication
+    @EnableResourceServer
+  line_anchor: OAuth2AuthorizationConfig.java:L22
+  before_snippet: '@EnableAuthorizationServer
+
+    public class OAuth2AuthorizationConfig extends AuthorizationServerConfigurerAdapter'
+  change: Write OAuth2AuthorizationConfig using RegisteredClientRepository, JWKSource, and AuthorizationServerSettings beans
+    from spring-boot-starter-oauth2-authorization-server. Register browser, account-service, statistics-service, and notification-service
+    clients with the same client IDs and server scope. Write AuthApplication without @EnableResourceServer using @EnableMethodSecurity.
+  do_not:
+  - Retain @EnableAuthorizationServer
+  - Retain AuthorizationServerConfigurerAdapter
+  - Retain spring-cloud-starter-oauth2 on auth-service
+  - Omit spring-boot-starter-oauth2-authorization-server coordinate
+  exact_snippet: "package com.piggymetrics.auth.config;\n\nimport java.util.UUID;\nimport com.nimbusds.jose.jwk.JWKSet;\n\
+    import com.nimbusds.jose.jwk.RSAKey;\nimport com.nimbusds.jose.jwk.source.ImmutableJWKSet;\nimport com.nimbusds.jose.jwk.source.JWKSource;\n\
+    import com.nimbusds.jose.proc.SecurityContext;\nimport java.security.KeyPair;\nimport java.security.KeyPairGenerator;\n\
+    import java.security.interfaces.RSAPrivateKey;\nimport java.security.interfaces.RSAPublicKey;\nimport org.springframework.core.env.Environment;\n\
+    import org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\nimport\
+    \ org.springframework.security.oauth2.core.AuthorizationGrantType;\nimport org.springframework.security.oauth2.core.ClientAuthenticationMethod;\n\
+    import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;\nimport org.springframework.security.oauth2.server.authorization.client.RegisteredClient;\n\
+    import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;\nimport org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;\n\
+    import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;\n\n@Configuration\npublic class\
+    \ OAuth2AuthorizationConfig {\n\n        private final Environment env;\n\n        public OAuth2AuthorizationConfig(Environment\
+    \ env) {\n                this.env = env;\n        }\n\n        @Bean\n        RegisteredClientRepository registeredClientRepository()\
+    \ {\n                RegisteredClient browser = RegisteredClient.withId(UUID.randomUUID().toString())\n              \
+    \                  .clientId(\"browser\")\n                                .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)\n\
+    \                                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)\n                \
+    \                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)\n                                .redirectUri(\"\
+    http://localhost:4000/login/oauth2/code/browser\")\n                                .scope(\"ui\")\n                 \
+    \               .clientSettings(ClientSettings.builder().requireAuthorizationConsent(false).build())\n               \
+    \                 .build();\n                RegisteredClient account = serviceClient(\"account-service\", env.getProperty(\"\
+    ACCOUNT_SERVICE_PASSWORD\"));\n                RegisteredClient statistics = serviceClient(\"statistics-service\", env.getProperty(\"\
+    STATISTICS_SERVICE_PASSWORD\"));\n                RegisteredClient notification = serviceClient(\"notification-service\"\
+    , env.getProperty(\"NOTIFICATION_SERVICE_PASSWORD\"));\n                return new InMemoryRegisteredClientRepository(browser,\
+    \ account, statistics, notification);\n        }\n\n        private static RegisteredClient serviceClient(String clientId,\
+    \ String secret) {\n                return RegisteredClient.withId(UUID.randomUUID().toString())\n                   \
+    \             .clientId(clientId)\n                                .clientSecret(\"{noop}\" + secret)\n              \
+    \                  .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)\n                     \
+    \           .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)\n                                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)\n\
+    \                                .scope(\"server\")\n                                .build();\n        }\n\n        @Bean\n\
+    \        JWKSource<SecurityContext> jwkSource() throws Exception {\n                KeyPairGenerator generator = KeyPairGenerator.getInstance(\"\
+    RSA\");\n                generator.initialize(2048);\n                KeyPair keyPair = generator.generateKeyPair();\n\
+    \                RSAKey rsaKey = new RSAKey.Builder((RSAPublicKey) keyPair.getPublic())\n                            \
+    \    .privateKey((RSAPrivateKey) keyPair.getPrivate())\n                                .keyID(UUID.randomUUID().toString())\n\
+    \                                .build();\n                return new ImmutableJWKSet<>(new JWKSet(rsaKey));\n      \
+    \  }\n\n        @Bean\n        AuthorizationServerSettings authorizationServerSettings() {\n                return AuthorizationServerSettings.builder().issuer(\"\
+    http://auth-service:5000/uaa\").build();\n        }\n}\n"
+  exact_companion: "package com.piggymetrics.auth;\n\nimport org.springframework.boot.SpringApplication;\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\n\
+    import org.springframework.cloud.client.discovery.EnableDiscoveryClient;\nimport org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;\n\
+    \n@SpringBootApplication\n@EnableDiscoveryClient\n@EnableMethodSecurity(prePostEnabled = true)\npublic class AuthApplication\
+    \ {\n\n        public static void main(String[] args) {\n                SpringApplication.run(AuthApplication.class,\
+    \ args);\n        }\n\n}\n"
+  exact_commands:
+  - mvn -pl auth-service -am test
+  acceptance:
+  - OAuth2AuthorizationConfig contains RegisteredClientRepository bean
+  - AuthApplication contains no EnableResourceServer
+  - auth-service/pom.xml contains spring-boot-starter-oauth2-authorization-server
+  rollback: git checkout -- auth-service/src/main/java/com/piggymetrics/auth/config/OAuth2AuthorizationConfig.java auth-service/src/main/java/com/piggymetrics/auth/AuthApplication.java
+  why: Spring Security OAuth Authorization Server APIs are end of life; Spring Authorization Server is the Boot 3 successor.
+  expected_result: Auth service issues tokens through Spring Authorization Server registered clients.
+  files:
+  - auth-service/src/main/java/com/piggymetrics/auth/config/OAuth2AuthorizationConfig.java
+  - auth-service/src/main/java/com/piggymetrics/auth/AuthApplication.java
+  machine_verify:
+  - mvn -pl auth-service -am test
+- depends_on:
+  - STEP-007
+  - STEP-016
+  requirement_refs:
+  - REQ-OAUTH
+  - REQ-SEC-MATCHERS
+  - REQ-CLOUD-SEC
+  decision_refs:
+  - D-008
+  - D-012
+  evidence_refs:
+  - R-001
+  companion_required: true
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl account-service -am test
+  id: STEP-022
+  title: Write account ResourceServerConfig oauth2ResourceServer and Feign interceptor
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/config/ResourceServerConfig.java
+  - account-service/src/main/java/com/piggymetrics/account/service/security/CustomUserInfoTokenServices.java
+  existing_implementation: ResourceServerConfig @EnableResourceServer OAuth2FeignRequestInterceptor antMatchers; CustomUserInfoTokenServices
+    ResourceServerTokenServices
+  line_anchor: ResourceServerConfig.java:L23
+  before_snippet: '@EnableResourceServer
+
+    public class ResourceServerConfig extends ResourceServerConfigurerAdapter'
+  change: Write ResourceServerConfig with SecurityFilterChain using requestMatchers("/", "/demo") permitAll and oauth2ResourceServer
+    opaqueToken. Provide OAuth2AuthorizedClientManager and a Feign RequestInterceptor that authorizes the account-service
+    client registration. Delete CustomUserInfoTokenServices.java because opaque token introspection replaces ResourceServerTokenServices.
+  do_not:
+  - Retain @EnableResourceServer
+  - Retain OAuth2FeignRequestInterceptor
+  - Retain antMatchers
+  - Keep CustomUserInfoTokenServices after this step
+  exact_snippet: "package com.piggymetrics.account.config;\n\nimport feign.RequestInterceptor;\nimport feign.RequestTemplate;\n\
+    import org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\nimport\
+    \ org.springframework.security.config.Customizer;\nimport org.springframework.security.config.annotation.web.builders.HttpSecurity;\n\
+    import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;\nimport org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;\n\
+    import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;\nimport org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizedClientManager;\n\
+    import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;\nimport org.springframework.security.web.SecurityFilterChain;\n\
+    \n@Configuration\npublic class ResourceServerConfig {\n\n        @Bean\n        SecurityFilterChain securityFilterChain(HttpSecurity\
+    \ http) throws Exception {\n                http.authorizeHttpRequests(auth -> auth\n                                .requestMatchers(\"\
+    /\", \"/demo\").permitAll()\n                                .anyRequest().authenticated())\n                        \
+    \        .oauth2ResourceServer(oauth2 -> oauth2.opaqueToken(Customizer.withDefaults()));\n                return http.build();\n\
+    \        }\n\n        @Bean\n        OAuth2AuthorizedClientManager authorizedClientManager(\n                        ClientRegistrationRepository\
+    \ clients,\n                        OAuth2AuthorizedClientRepository authorizedClients) {\n                return new\
+    \ DefaultOAuth2AuthorizedClientManager(clients, authorizedClients);\n        }\n\n        @Bean\n        RequestInterceptor\
+    \ oauth2FeignRequestInterceptor(OAuth2AuthorizedClientManager manager) {\n                return new RequestInterceptor()\
+    \ {\n                        @Override\n                        public void apply(RequestTemplate template) {\n      \
+    \                          OAuth2AuthorizeRequest request = OAuth2AuthorizeRequest\n                                 \
+    \               .withClientRegistrationId(\"account-service\")\n                                                .principal(\"\
+    account-service\")\n                                                .build();\n                                var client\
+    \ = manager.authorize(request);\n                                if (client != null && client.getAccessToken() != null)\
+    \ {\n                                        template.header(\"Authorization\", \"Bearer \" + client.getAccessToken().getTokenValue());\n\
+    \                                }\n                        }\n                };\n        }\n}\n"
+  exact_companion: 'DELETED_FILE: account-service/src/main/java/com/piggymetrics/account/service/security/CustomUserInfoTokenServices.java'
+  exact_commands:
+  - test ! -f account-service/src/main/java/com/piggymetrics/account/service/security/CustomUserInfoTokenServices.java
+  - mvn -pl account-service -am test
+  acceptance:
+  - ResourceServerConfig uses oauth2ResourceServer
+  - CustomUserInfoTokenServices.java is deleted
+  - No OAuth2FeignRequestInterceptor import remains in account-service
+  rollback: git checkout HEAD -- account-service/src/main/java/com/piggymetrics/account/config/ResourceServerConfig.java account-service/src/main/java/com/piggymetrics/account/service/security/CustomUserInfoTokenServices.java
+  why: Spring Cloud Security OAuth2 and spring-security-oauth2 resource server adapters are removed on Boot 3.
+  expected_result: Account service protects APIs with oauth2ResourceServer and propagates client credentials on Feign calls.
+  files:
+  - account-service/src/main/java/com/piggymetrics/account/config/ResourceServerConfig.java
+  - account-service/src/main/java/com/piggymetrics/account/service/security/CustomUserInfoTokenServices.java
+  machine_verify:
+  - test ! -f account-service/src/main/java/com/piggymetrics/account/service/security/CustomUserInfoTokenServices.java
+  - mvn -pl account-service -am test
+- depends_on:
+  - STEP-008
+  requirement_refs:
+  - REQ-OAUTH
+  - REQ-OAUTH-STATS
+  decision_refs:
+  - D-008
+  evidence_refs:
+  - R-001
+  companion_required: true
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl statistics-service -am test
+  id: STEP-023
+  title: Write statistics ResourceServerConfig and StatisticsApplication on Boot 3
+  exact_files:
+  - statistics-service/src/main/java/com/piggymetrics/statistics/config/ResourceServerConfig.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/StatisticsApplication.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/service/security/CustomUserInfoTokenServices.java
+  existing_implementation: statistics ResourceServerConfig @EnableResourceServer; StatisticsApplication @EnableOAuth2Client
+    CustomConversions; CustomUserInfoTokenServices
+  line_anchor: statistics-service/.../ResourceServerConfig.java:L15
+  before_snippet: '@EnableResourceServer
+
+    public class ResourceServerConfig extends ResourceServerConfigurerAdapter'
+  change: Write statistics ResourceServerConfig with oauth2ResourceServer opaqueToken SecurityFilterChain. Write StatisticsApplication
+    with @EnableMethodSecurity and MongoCustomConversions bean, omitting @EnableOAuth2Client and legacy ResourceServerTokenServices
+    imports. Delete statistics CustomUserInfoTokenServices.java.
+  do_not:
+  - Retain @EnableResourceServer in statistics-service
+  - Retain @EnableOAuth2Client
+  - Keep CustomConversions constructor API from Spring Data MongoDB 2.x
+  exact_snippet: "package com.piggymetrics.statistics.config;\n\nimport org.springframework.context.annotation.Bean;\nimport\
+    \ org.springframework.context.annotation.Configuration;\nimport org.springframework.security.config.Customizer;\nimport\
+    \ org.springframework.security.config.annotation.web.builders.HttpSecurity;\nimport org.springframework.security.web.SecurityFilterChain;\n\
+    \n@Configuration\npublic class ResourceServerConfig {\n\n        @Bean\n        SecurityFilterChain securityFilterChain(HttpSecurity\
+    \ http) throws Exception {\n                http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())\n  \
+    \                              .oauth2ResourceServer(oauth2 -> oauth2.opaqueToken(Customizer.withDefaults()));\n     \
+    \           return http.build();\n        }\n}\n"
+  exact_companion: "package com.piggymetrics.statistics;\n\nimport com.piggymetrics.statistics.repository.converter.DataPointIdReaderConverter;\n\
+    import com.piggymetrics.statistics.repository.converter.DataPointIdWriterConverter;\nimport org.springframework.boot.SpringApplication;\n\
+    import org.springframework.boot.autoconfigure.SpringBootApplication;\nimport org.springframework.cloud.client.discovery.EnableDiscoveryClient;\n\
+    import org.springframework.cloud.openfeign.EnableFeignClients;\nimport org.springframework.context.annotation.Bean;\n\
+    import org.springframework.context.annotation.Configuration;\nimport org.springframework.data.mongodb.core.convert.MongoCustomConversions;\n\
+    import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;\n\nimport java.util.Arrays;\n\
+    \n@SpringBootApplication\n@EnableDiscoveryClient\n@EnableFeignClients\n@EnableMethodSecurity(prePostEnabled = true)\n\
+    public class StatisticsApplication {\n\n        public static void main(String[] args) {\n                SpringApplication.run(StatisticsApplication.class,\
+    \ args);\n        }\n\n        @Configuration\n        static class CustomConversionsConfig {\n\n                @Bean\n\
+    \                public MongoCustomConversions customConversions() {\n                        return new MongoCustomConversions(Arrays.asList(new\
+    \ DataPointIdReaderConverter(),\n                                        new DataPointIdWriterConverter()));\n       \
+    \         }\n        }\n}\n\n---\nDELETED_FILE: statistics-service/src/main/java/com/piggymetrics/statistics/service/security/CustomUserInfoTokenServices.java\n"
+  exact_commands:
+  - mvn -pl statistics-service -am test
+  acceptance:
+  - statistics ResourceServerConfig uses oauth2ResourceServer
+  - StatisticsApplication uses MongoCustomConversions
+  - statistics CustomUserInfoTokenServices.java is deleted
+  rollback: git checkout HEAD -- statistics-service/src/main/java/com/piggymetrics/statistics/
+  why: Statistics service must drop spring-security-oauth2 resource server types removed on Boot 3.
+  expected_result: Statistics service authenticates with opaque tokens and keeps Mongo converters on the Boot 3 API.
+  files:
+  - statistics-service/src/main/java/com/piggymetrics/statistics/config/ResourceServerConfig.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/StatisticsApplication.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/service/security/CustomUserInfoTokenServices.java
+  machine_verify:
+  - mvn -pl statistics-service -am test
+- depends_on:
+  - STEP-009
+  requirement_refs:
+  - REQ-OAUTH
+  - REQ-CLOUD-SEC
+  decision_refs:
+  - D-008
+  - D-012
+  evidence_refs:
+  - R-001
+  companion_required: true
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl notification-service -am test
+  id: STEP-024
+  title: Write notification ResourceServerConfig and application without legacy OAuth
+  exact_files:
+  - notification-service/src/main/java/com/piggymetrics/notification/config/ResourceServerConfig.java
+  - notification-service/src/main/java/com/piggymetrics/notification/NotificationServiceApplication.java
+  existing_implementation: notification ResourceServerConfig OAuth2FeignRequestInterceptor @EnableResourceServer; NotificationServiceApplication
+    @EnableOAuth2Client
+  line_anchor: notification-service/.../ResourceServerConfig.java:L18
+  before_snippet: '@EnableResourceServer
+
+    public class ResourceServerConfig extends ResourceServerConfigurerAdapter'
+  change: Write notification ResourceServerConfig with oauth2ResourceServer SecurityFilterChain and Feign RequestInterceptor
+    using OAuth2AuthorizedClientManager for notification-service registration. Write NotificationServiceApplication with @EnableMethodSecurity
+    and without @EnableOAuth2Client.
+  do_not:
+  - Retain OAuth2FeignRequestInterceptor
+  - Retain @EnableResourceServer
+  - Omit spring-boot-starter-oauth2-client from notification-service/pom.xml
+  exact_snippet: "package com.piggymetrics.notification.config;\n\nimport feign.RequestInterceptor;\nimport feign.RequestTemplate;\n\
+    import org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\nimport\
+    \ org.springframework.security.config.Customizer;\nimport org.springframework.security.config.annotation.web.builders.HttpSecurity;\n\
+    import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;\nimport org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;\n\
+    import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;\nimport org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizedClientManager;\n\
+    import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;\nimport org.springframework.security.web.SecurityFilterChain;\n\
+    \n@Configuration\npublic class ResourceServerConfig {\n\n        @Bean\n        SecurityFilterChain securityFilterChain(HttpSecurity\
+    \ http) throws Exception {\n                http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())\n  \
+    \                              .oauth2ResourceServer(oauth2 -> oauth2.opaqueToken(Customizer.withDefaults()));\n     \
+    \           return http.build();\n        }\n\n        @Bean\n        OAuth2AuthorizedClientManager authorizedClientManager(\n\
+    \                        ClientRegistrationRepository clients,\n                        OAuth2AuthorizedClientRepository\
+    \ authorizedClients) {\n                return new DefaultOAuth2AuthorizedClientManager(clients, authorizedClients);\n\
+    \        }\n\n        @Bean\n        RequestInterceptor oauth2FeignRequestInterceptor(OAuth2AuthorizedClientManager manager)\
+    \ {\n                return template -> {\n                        OAuth2AuthorizeRequest request = OAuth2AuthorizeRequest\n\
+    \                                        .withClientRegistrationId(\"notification-service\")\n                       \
+    \                 .principal(\"notification-service\")\n                                        .build();\n          \
+    \              var client = manager.authorize(request);\n                        if (client != null && client.getAccessToken()\
+    \ != null) {\n                                template.header(\"Authorization\", \"Bearer \" + client.getAccessToken().getTokenValue());\n\
+    \                        }\n                };\n        }\n}\n"
+  exact_companion: "package com.piggymetrics.notification;\n\nimport com.piggymetrics.notification.repository.converter.FrequencyReaderConverter;\n\
+    import com.piggymetrics.notification.repository.converter.FrequencyWriterConverter;\nimport org.springframework.boot.SpringApplication;\n\
+    import org.springframework.boot.autoconfigure.SpringBootApplication;\nimport org.springframework.cloud.client.discovery.EnableDiscoveryClient;\n\
+    import org.springframework.cloud.openfeign.EnableFeignClients;\nimport org.springframework.context.annotation.Bean;\n\
+    import org.springframework.context.annotation.Configuration;\nimport org.springframework.data.mongodb.core.convert.MongoCustomConversions;\n\
+    import org.springframework.scheduling.annotation.EnableScheduling;\nimport org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;\n\
+    \nimport java.util.Arrays;\n\n@SpringBootApplication\n@EnableDiscoveryClient\n@EnableFeignClients\n@EnableMethodSecurity(prePostEnabled\
+    \ = true)\n@EnableScheduling\npublic class NotificationServiceApplication {\n\n        public static void main(String[]\
+    \ args) {\n                SpringApplication.run(NotificationServiceApplication.class, args);\n        }\n\n        @Configuration\n\
+    \        static class CustomConversionsConfig {\n\n                @Bean\n                public MongoCustomConversions\
+    \ customConversions() {\n                        return new MongoCustomConversions(Arrays.asList(new FrequencyReaderConverter(),\n\
+    \                                        new FrequencyWriterConverter()));\n                }\n        }\n}\n"
+  exact_commands:
+  - mvn -pl notification-service -am test
+  acceptance:
+  - notification ResourceServerConfig contains oauth2ResourceServer
+  - NotificationServiceApplication contains no EnableOAuth2Client
+  rollback: git checkout HEAD -- notification-service/src/main/java/com/piggymetrics/notification/config/ResourceServerConfig.java
+    notification-service/src/main/java/com/piggymetrics/notification/NotificationServiceApplication.java
+  why: Notification service must leave Spring Cloud Security OAuth2 client helpers removed after Finchley.
+  expected_result: Notification service uses Spring Security OAuth2 client for Feign and opaque resource server security.
+  files:
+  - notification-service/src/main/java/com/piggymetrics/notification/config/ResourceServerConfig.java
+  - notification-service/src/main/java/com/piggymetrics/notification/NotificationServiceApplication.java
+  machine_verify:
+  - mvn -pl notification-service -am test
+- depends_on:
+  - STEP-007
+  requirement_refs:
+  - REQ-JAKARTA
+  decision_refs:
+  - D-013
+  evidence_refs:
+  - R-001
+  companion_required: true
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl account-service -am -DskipTests compile
+  id: STEP-025
+  title: Move account-service javax.validation imports to jakarta.validation
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/Account.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/Item.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/Saving.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/User.java
+  existing_implementation: account-service controllers and domain classes import javax.validation.*
+  line_anchor: account-service domain/controller javax.validation imports
+  before_snippet: import javax.validation.constraints.NotNull;
+  change: Write the five account-service Java sources so every javax.validation import becomes jakarta.validation. Keep Hibernate
+    @Length imports unchanged. spring-boot-starter-validation is already declared in account-service/pom.xml from STEP-007.
+  do_not:
+  - Leave javax.validation imports in account-service main sources
+  - Change validation min/max attribute values
+  exact_snippet: "package com.piggymetrics.account.controller;\n\nimport com.piggymetrics.account.domain.Account;\nimport\
+    \ com.piggymetrics.account.domain.User;\nimport com.piggymetrics.account.service.AccountService;\nimport org.springframework.beans.factory.annotation.Autowired;\n\
+    import org.springframework.security.access.prepost.PreAuthorize;\nimport org.springframework.web.bind.annotation.*;\n\n\
+    import jakarta.validation.Valid;\nimport java.security.Principal;\n\n@RestController\npublic class AccountController {\n\
+    \n\t@Autowired\n\tprivate AccountService accountService;\n\n\t@PreAuthorize(\"#oauth2.hasScope('server') or #name.equals('demo')\"\
+    )\n\t@RequestMapping(path = \"/{name}\", method = RequestMethod.GET)\n\tpublic Account getAccountByName(@PathVariable\
+    \ String name) {\n\t\treturn accountService.findByName(name);\n\t}\n\n\t@RequestMapping(path = \"/current\", method =\
+    \ RequestMethod.GET)\n\tpublic Account getCurrentAccount(Principal principal) {\n\t\treturn accountService.findByName(principal.getName());\n\
+    \t}\n\n\t@RequestMapping(path = \"/current\", method = RequestMethod.PUT)\n\tpublic void saveCurrentAccount(Principal\
+    \ principal, @Valid @RequestBody Account account) {\n\t\taccountService.saveChanges(principal.getName(), account);\n\t\
+    }\n\n\t@RequestMapping(path = \"/\", method = RequestMethod.POST)\n\tpublic Account createNewAccount(@Valid @RequestBody\
+    \ User user) {\n\t\treturn accountService.create(user);\n\t}\n}\n"
+  exact_companion: "# account-service/src/main/java/com/piggymetrics/account/domain/Account.java\npackage com.piggymetrics.account.domain;\n\
+    \nimport org.codehaus.jackson.annotate.JsonIgnoreProperties;\nimport org.hibernate.validator.constraints.Length;\nimport\
+    \ org.springframework.data.annotation.Id;\nimport org.springframework.data.mongodb.core.mapping.Document;\n\nimport jakarta.validation.Valid;\n\
+    import jakarta.validation.constraints.NotNull;\nimport java.util.Date;\nimport java.util.List;\n\n@Document(collection\
+    \ = \"accounts\")\n@JsonIgnoreProperties(ignoreUnknown = true)\npublic class Account {\n\n\t@Id\n\tprivate String name;\n\
+    \n\tprivate Date lastSeen;\n\n\t@Valid\n\tprivate List<Item> incomes;\n\n\t@Valid\n\tprivate List<Item> expenses;\n\n\t\
+    @Valid\n\t@NotNull\n\tprivate Saving saving;\n\n\t@Length(min = 0, max = 20_000)\n\tprivate String note;\n\n\tpublic String\
+    \ getName() {\n\t\treturn name;\n\t}\n\n\tpublic void setName(String name) {\n\t\tthis.name = name;\n\t}\n\n\tpublic Date\
+    \ getLastSeen() {\n\t\treturn lastSeen;\n\t}\n\n\tpublic void setLastSeen(Date lastSeen) {\n\t\tthis.lastSeen = lastSeen;\n\
+    \t}\n\n\tpublic List<Item> getIncomes() {\n\t\treturn incomes;\n\t}\n\n\tpublic void setIncomes(List<Item> incomes) {\n\
+    \t\tthis.incomes = incomes;\n\t}\n\n\tpublic List<Item> getExpenses() {\n\t\treturn expenses;\n\t}\n\n\tpublic void setExpenses(List<Item>\
+    \ expenses) {\n\t\tthis.expenses = expenses;\n\t}\n\n\tpublic Saving getSaving() {\n\t\treturn saving;\n\t}\n\n\tpublic\
+    \ void setSaving(Saving saving) {\n\t\tthis.saving = saving;\n\t}\n\n\tpublic String getNote() {\n\t\treturn note;\n\t\
+    }\n\n\tpublic void setNote(String note) {\n\t\tthis.note = note;\n\t}\n}\n\n---\n# account-service/src/main/java/com/piggymetrics/account/domain/Item.java\n\
+    package com.piggymetrics.account.domain;\n\nimport org.hibernate.validator.constraints.Length;\n\nimport jakarta.validation.constraints.NotNull;\n\
+    import java.math.BigDecimal;\n\npublic class Item {\n\n\t@NotNull\n\t@Length(min = 1, max = 20)\n\tprivate String title;\n\
+    \n\t@NotNull\n\tprivate BigDecimal amount;\n\n\t@NotNull\n\tprivate Currency currency;\n\n\t@NotNull\n\tprivate TimePeriod\
+    \ period;\n\n\t@NotNull\n\tprivate String icon;\n\n\tpublic String getTitle() {\n\t\treturn title;\n\t}\n\n\tpublic void\
+    \ setTitle(String title) {\n\t\tthis.title = title;\n\t}\n\n\tpublic BigDecimal getAmount() {\n\t\treturn amount;\n\t\
+    }\n\n\tpublic void setAmount(BigDecimal amount) {\n\t\tthis.amount = amount;\n\t}\n\n\tpublic Currency getCurrency() {\n\
+    \t\treturn currency;\n\t}\n\n\tpublic void setCurrency(Currency currency) {\n\t\tthis.currency = currency;\n\t}\n\n\t\
+    public TimePeriod getPeriod() {\n\t\treturn period;\n\t}\n\n\tpublic void setPeriod(TimePeriod period) {\n\t\tthis.period\
+    \ = period;\n\t}\n\n\tpublic String getIcon() {\n\t\treturn icon;\n\t}\n\n\tpublic void setIcon(String icon) {\n\t\tthis.icon\
+    \ = icon;\n\t}\n}\n\n---\n# account-service/src/main/java/com/piggymetrics/account/domain/Saving.java\npackage com.piggymetrics.account.domain;\n\
+    \nimport jakarta.validation.constraints.NotNull;\nimport java.math.BigDecimal;\n\npublic class Saving {\n\n\t@NotNull\n\
+    \tprivate BigDecimal amount;\n\n\t@NotNull\n\tprivate Currency currency;\n\n\t@NotNull\n\tprivate BigDecimal interest;\n\
+    \n\t@NotNull\n\tprivate Boolean deposit;\n\n\t@NotNull\n\tprivate Boolean capitalization;\n\n\tpublic BigDecimal getAmount()\
+    \ {\n\t\treturn amount;\n\t}\n\n\tpublic void setAmount(BigDecimal amount) {\n\t\tthis.amount = amount;\n\t}\n\n\tpublic\
+    \ Currency getCurrency() {\n\t\treturn currency;\n\t}\n\n\tpublic void setCurrency(Currency currency) {\n\t\tthis.currency\
+    \ = currency;\n\t}\n\n\tpublic BigDecimal getInterest() {\n\t\treturn interest;\n\t}\n\n\tpublic void setInterest(BigDecimal\
+    \ interest) {\n\t\tthis.interest = interest;\n\t}\n\n\tpublic Boolean getDeposit() {\n\t\treturn deposit;\n\t}\n\n\tpublic\
+    \ void setDeposit(Boolean deposit) {\n\t\tthis.deposit = deposit;\n\t}\n\n\tpublic Boolean getCapitalization() {\n\t\t\
+    return capitalization;\n\t}\n\n\tpublic void setCapitalization(Boolean capitalization) {\n\t\tthis.capitalization = capitalization;\n\
+    \t}\n}\n\n---\n# account-service/src/main/java/com/piggymetrics/account/domain/User.java\npackage com.piggymetrics.account.domain;\n\
+    \nimport org.hibernate.validator.constraints.Length;\n\nimport jakarta.validation.constraints.NotNull;\n\npublic class\
+    \ User {\n\n\t@NotNull\n\t@Length(min = 3, max = 20)\n\tprivate String username;\n\n\t@NotNull\n\t@Length(min = 6, max\
+    \ = 40)\n\tprivate String password;\n\n\tpublic String getUsername() {\n\t\treturn username;\n\t}\n\n\tpublic void setUsername(String\
+    \ username) {\n\t\tthis.username = username;\n\t}\n\n\tpublic String getPassword() {\n\t\treturn password;\n\t}\n\n\t\
+    public void setPassword(String password) {\n\t\tthis.password = password;\n\t}\n}\n"
+  exact_commands:
+  - rg -n 'javax\.validation' account-service/src/main; test $? -eq 1
+  acceptance:
+  - No javax.validation import remains under account-service/src/main
+  - Each listed file matches its pinned final text
+  rollback: git checkout HEAD -- account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+    account-service/src/main/java/com/piggymetrics/account/domain/Account.java account-service/src/main/java/com/piggymetrics/account/domain/Item.java
+    account-service/src/main/java/com/piggymetrics/account/domain/Saving.java account-service/src/main/java/com/piggymetrics/account/domain/User.java
+  why: Boot 3 is Jakarta EE 10; javax.validation types do not compile on the target line.
+  expected_result: Account-service validation annotations resolve under jakarta.validation.
+  files:
+  - account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/Account.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/Item.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/Saving.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/User.java
+  machine_verify:
+  - rg -n 'javax\.validation' account-service/src/main; test $? -eq 1
+- depends_on:
+  - STEP-006
+  requirement_refs:
+  - REQ-JAKARTA
+  decision_refs:
+  - D-013
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl auth-service -am -DskipTests compile
+  id: STEP-026
+  title: Move auth-service UserController to jakarta.validation
+  exact_files:
+  - auth-service/src/main/java/com/piggymetrics/auth/controller/UserController.java
+  existing_implementation: UserController.java import javax.validation.Valid
+  line_anchor: UserController.java:L12
+  before_snippet: import javax.validation.Valid;
+  change: 'Write UserController.java with jakarta.validation.Valid. Keep #oauth2 SpEL migration to hasAuthority(''SCOPE_server'')
+    in the same final text when PreAuthorize is present.'
+  do_not:
+  - Leave javax.validation in UserController
+  exact_snippet: "package com.piggymetrics.auth.controller;\n\nimport com.piggymetrics.auth.domain.User;\nimport com.piggymetrics.auth.service.UserService;\n\
+    import org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.security.access.prepost.PreAuthorize;\n\
+    import org.springframework.web.bind.annotation.RequestBody;\nimport org.springframework.web.bind.annotation.RequestMapping;\n\
+    import org.springframework.web.bind.annotation.RequestMethod;\nimport org.springframework.web.bind.annotation.RestController;\n\
+    \nimport jakarta.validation.Valid;\nimport java.security.Principal;\n\n@RestController\n@RequestMapping(\"/users\")\n\
+    public class UserController {\n\n\t@Autowired\n\tprivate UserService userService;\n\n\t@RequestMapping(value = \"/current\"\
+    , method = RequestMethod.GET)\n\tpublic Principal getUser(Principal principal) {\n\t\treturn principal;\n\t}\n\n\t@PreAuthorize(\"\
+    hasAuthority('SCOPE_server')\")\n\t@RequestMapping(method = RequestMethod.POST)\n\tpublic void createUser(@Valid @RequestBody\
+    \ User user) {\n\t\tuserService.create(user);\n\t}\n}\n"
+  exact_commands:
+  - rg -n 'javax\.validation' auth-service/src/main; test $? -eq 1
+  acceptance:
+  - UserController imports jakarta.validation.Valid
+  rollback: git checkout HEAD -- auth-service/src/main/java/com/piggymetrics/auth/controller/UserController.java
+  why: Auth controller validation must compile on Jakarta EE 10.
+  expected_result: UserController validates request bodies with jakarta.validation.
+  files:
+  - auth-service/src/main/java/com/piggymetrics/auth/controller/UserController.java
+  machine_verify:
+  - rg -n 'javax\.validation' auth-service/src/main; test $? -eq 1
+- depends_on:
+  - STEP-008
+  requirement_refs:
+  - REQ-JAKARTA
+  decision_refs:
+  - D-013
+  evidence_refs:
+  - R-001
+  companion_required: true
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl statistics-service -am -DskipTests compile
+  id: STEP-027
+  title: Move statistics-service javax.validation imports to jakarta.validation
+  exact_files:
+  - statistics-service/src/main/java/com/piggymetrics/statistics/controller/StatisticsController.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/domain/Account.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/domain/Item.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/domain/Saving.java
+  existing_implementation: statistics controller and domain javax.validation imports
+  line_anchor: statistics-service javax.validation
+  before_snippet: import javax.validation.Valid;
+  change: 'Write the four statistics-service Java sources with jakarta.validation imports and SCOPE_server authority checks
+    where #oauth2.hasScope was used.'
+  do_not:
+  - Leave javax.validation under statistics-service/src/main
+  exact_snippet: "package com.piggymetrics.statistics.controller;\n\nimport com.piggymetrics.statistics.domain.Account;\n\
+    import com.piggymetrics.statistics.domain.timeseries.DataPoint;\nimport com.piggymetrics.statistics.service.StatisticsService;\n\
+    import org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.security.access.prepost.PreAuthorize;\n\
+    import org.springframework.web.bind.annotation.*;\n\nimport jakarta.validation.Valid;\nimport java.security.Principal;\n\
+    import java.util.List;\n\n@RestController\npublic class StatisticsController {\n\n\t@Autowired\n\tprivate StatisticsService\
+    \ statisticsService;\n\n\t@RequestMapping(value = \"/current\", method = RequestMethod.GET)\n\tpublic List<DataPoint>\
+    \ getCurrentAccountStatistics(Principal principal) {\n\t\treturn statisticsService.findByAccountName(principal.getName());\n\
+    \t}\n\n\t@PreAuthorize(\"hasAuthority('SCOPE_server') or #accountName.equals('demo')\")\n\t@RequestMapping(value = \"\
+    /{accountName}\", method = RequestMethod.GET)\n\tpublic List<DataPoint> getStatisticsByAccountName(@PathVariable String\
+    \ accountName) {\n\t\treturn statisticsService.findByAccountName(accountName);\n\t}\n\n\t@PreAuthorize(\"hasAuthority('SCOPE_server')\"\
+    )\n\t@RequestMapping(value = \"/{accountName}\", method = RequestMethod.PUT)\n\tpublic void saveAccountStatistics(@PathVariable\
+    \ String accountName, @Valid @RequestBody Account account) {\n\t\tstatisticsService.save(accountName, account);\n\t}\n\
+    }\n"
+  exact_companion: "# statistics-service/src/main/java/com/piggymetrics/statistics/domain/Account.java\npackage com.piggymetrics.statistics.domain;\n\
+    \nimport org.codehaus.jackson.annotate.JsonIgnoreProperties;\nimport org.springframework.data.mongodb.core.mapping.Document;\n\
+    \nimport jakarta.validation.Valid;\nimport jakarta.validation.constraints.NotNull;\nimport java.util.List;\n\n@Document(collection\
+    \ = \"accounts\")\n@JsonIgnoreProperties(ignoreUnknown = true)\npublic class Account {\n\n\t@Valid\n\t@NotNull\n\tprivate\
+    \ List<Item> incomes;\n\n\t@Valid\n\t@NotNull\n\tprivate List<Item> expenses;\n\n\t@Valid\n\t@NotNull\n\tprivate Saving\
+    \ saving;\n\n\tpublic List<Item> getIncomes() {\n\t\treturn incomes;\n\t}\n\n\tpublic void setIncomes(List<Item> incomes)\
+    \ {\n\t\tthis.incomes = incomes;\n\t}\n\n\tpublic List<Item> getExpenses() {\n\t\treturn expenses;\n\t}\n\n\tpublic void\
+    \ setExpenses(List<Item> expenses) {\n\t\tthis.expenses = expenses;\n\t}\n\n\tpublic Saving getSaving() {\n\t\treturn\
+    \ saving;\n\t}\n\n\tpublic void setSaving(Saving saving) {\n\t\tthis.saving = saving;\n\t}\n}\n\n---\n# statistics-service/src/main/java/com/piggymetrics/statistics/domain/Item.java\n\
+    package com.piggymetrics.statistics.domain;\n\nimport org.hibernate.validator.constraints.Length;\n\nimport jakarta.validation.constraints.NotNull;\n\
+    import java.math.BigDecimal;\n\npublic class Item {\n\n\t@NotNull\n\t@Length(min = 1, max = 20)\n\tprivate String title;\n\
+    \n\t@NotNull\n\tprivate BigDecimal amount;\n\n\t@NotNull\n\tprivate Currency currency;\n\n\t@NotNull\n\tprivate TimePeriod\
+    \ period;\n\n\tpublic String getTitle() {\n\t\treturn title;\n\t}\n\n\tpublic void setTitle(String title) {\n\t\tthis.title\
+    \ = title;\n\t}\n\n\tpublic BigDecimal getAmount() {\n\t\treturn amount;\n\t}\n\n\tpublic void setAmount(BigDecimal amount)\
+    \ {\n\t\tthis.amount = amount;\n\t}\n\n\tpublic Currency getCurrency() {\n\t\treturn currency;\n\t}\n\n\tpublic void setCurrency(Currency\
+    \ currency) {\n\t\tthis.currency = currency;\n\t}\n\n\tpublic TimePeriod getPeriod() {\n\t\treturn period;\n\t}\n\n\t\
+    public void setPeriod(TimePeriod period) {\n\t\tthis.period = period;\n\t}\n}\n\n---\n# statistics-service/src/main/java/com/piggymetrics/statistics/domain/Saving.java\n\
+    package com.piggymetrics.statistics.domain;\n\nimport jakarta.validation.constraints.NotNull;\nimport java.math.BigDecimal;\n\
+    \npublic class Saving {\n\n\t@NotNull\n\tprivate BigDecimal amount;\n\n\t@NotNull\n\tprivate Currency currency;\n\n\t\
+    @NotNull\n\tprivate BigDecimal interest;\n\n\t@NotNull\n\tprivate Boolean deposit;\n\n\t@NotNull\n\tprivate Boolean capitalization;\n\
+    \n\tpublic BigDecimal getAmount() {\n\t\treturn amount;\n\t}\n\n\tpublic void setAmount(BigDecimal amount) {\n\t\tthis.amount\
+    \ = amount;\n\t}\n\n\tpublic Currency getCurrency() {\n\t\treturn currency;\n\t}\n\n\tpublic void setCurrency(Currency\
+    \ currency) {\n\t\tthis.currency = currency;\n\t}\n\n\tpublic BigDecimal getInterest() {\n\t\treturn interest;\n\t}\n\n\
+    \tpublic void setInterest(BigDecimal interest) {\n\t\tthis.interest = interest;\n\t}\n\n\tpublic Boolean getDeposit()\
+    \ {\n\t\treturn deposit;\n\t}\n\n\tpublic void setDeposit(Boolean deposit) {\n\t\tthis.deposit = deposit;\n\t}\n\n\tpublic\
+    \ Boolean getCapitalization() {\n\t\treturn capitalization;\n\t}\n\n\tpublic void setCapitalization(Boolean capitalization)\
+    \ {\n\t\tthis.capitalization = capitalization;\n\t}\n}\n"
+  exact_commands:
+  - rg -n 'javax\.validation' statistics-service/src/main; test $? -eq 1
+  acceptance:
+  - No javax.validation import remains under statistics-service/src/main
+  rollback: git checkout HEAD -- statistics-service/src/main/java/com/piggymetrics/statistics/controller/StatisticsController.java
+    statistics-service/src/main/java/com/piggymetrics/statistics/domain/Account.java statistics-service/src/main/java/com/piggymetrics/statistics/domain/Item.java
+    statistics-service/src/main/java/com/piggymetrics/statistics/domain/Saving.java
+  why: Statistics service types must compile on Jakarta EE 10.
+  expected_result: Statistics validation annotations resolve under jakarta.validation.
+  files:
+  - statistics-service/src/main/java/com/piggymetrics/statistics/controller/StatisticsController.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/domain/Account.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/domain/Item.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/domain/Saving.java
+  machine_verify:
+  - rg -n 'javax\.validation' statistics-service/src/main; test $? -eq 1
+- depends_on:
+  - STEP-009
+  requirement_refs:
+  - REQ-JAKARTA
+  decision_refs:
+  - D-013
+  evidence_refs:
+  - R-001
+  companion_required: true
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl notification-service -am test
+  id: STEP-028
+  title: Move notification-service javax.validation and javax.mail to jakarta
+  exact_files:
+  - notification-service/src/main/java/com/piggymetrics/notification/controller/RecipientController.java
+  - notification-service/src/main/java/com/piggymetrics/notification/domain/NotificationSettings.java
+  - notification-service/src/main/java/com/piggymetrics/notification/domain/Recipient.java
+  - notification-service/src/main/java/com/piggymetrics/notification/service/EmailService.java
+  - notification-service/src/main/java/com/piggymetrics/notification/service/EmailServiceImpl.java
+  - notification-service/src/test/java/com/piggymetrics/notification/service/EmailServiceImplTest.java
+  - notification-service/src/test/java/com/piggymetrics/notification/service/NotificationServiceImplTest.java
+  existing_implementation: notification domain/controller javax.validation; EmailService* javax.mail
+  line_anchor: notification-service javax.*
+  before_snippet: 'import javax.validation.Valid;
+
+    import javax.mail.MessagingException;'
+  change: Write notification controller, domain, EmailService, EmailServiceImpl, and the two mail-related tests so javax.validation
+    and javax.mail become jakarta.validation and jakarta.mail. Map Hibernate Email constraint to jakarta.validation.constraints.Email
+    on Recipient.
+  do_not:
+  - Leave javax.validation or javax.mail imports in notification-service sources listed here
+  exact_snippet: "package com.piggymetrics.notification.controller;\n\nimport com.piggymetrics.notification.domain.Recipient;\n\
+    import com.piggymetrics.notification.service.RecipientService;\nimport org.springframework.beans.factory.annotation.Autowired;\n\
+    import org.springframework.web.bind.annotation.RequestBody;\nimport org.springframework.web.bind.annotation.RequestMapping;\n\
+    import org.springframework.web.bind.annotation.RequestMethod;\nimport org.springframework.web.bind.annotation.RestController;\n\
+    \nimport jakarta.validation.Valid;\nimport java.security.Principal;\n\n@RestController\n@RequestMapping(\"/recipients\"\
+    )\npublic class RecipientController {\n\n\t@Autowired\n\tprivate RecipientService recipientService;\n\n\t@RequestMapping(path\
+    \ = \"/current\", method = RequestMethod.GET)\n\tpublic Object getCurrentNotificationsSettings(Principal principal) {\n\
+    \t\treturn recipientService.findByAccountName(principal.getName());\n\t}\n\n\t@RequestMapping(path = \"/current\", method\
+    \ = RequestMethod.PUT)\n\tpublic Object saveCurrentNotificationsSettings(Principal principal, @Valid @RequestBody Recipient\
+    \ recipient) {\n\t\treturn recipientService.save(principal.getName(), recipient);\n\t}\n}\n"
+  exact_companion: "# notification-service/src/main/java/com/piggymetrics/notification/domain/NotificationSettings.java\n\
+    package com.piggymetrics.notification.domain;\n\nimport jakarta.validation.constraints.NotNull;\nimport java.util.Date;\n\
+    \npublic class NotificationSettings {\n\n\t@NotNull\n\tprivate Boolean active;\n\n\t@NotNull\n\tprivate Frequency frequency;\n\
+    \n\tprivate Date lastNotified;\n\n\tpublic Boolean getActive() {\n\t\treturn active;\n\t}\n\n\tpublic void setActive(Boolean\
+    \ active) {\n\t\tthis.active = active;\n\t}\n\n\tpublic Frequency getFrequency() {\n\t\treturn frequency;\n\t}\n\n\tpublic\
+    \ void setFrequency(Frequency frequency) {\n\t\tthis.frequency = frequency;\n\t}\n\n\tpublic Date getLastNotified() {\n\
+    \t\treturn lastNotified;\n\t}\n\n\tpublic void setLastNotified(Date lastNotified) {\n\t\tthis.lastNotified = lastNotified;\n\
+    \t}\n}\n\n---\n# notification-service/src/main/java/com/piggymetrics/notification/domain/Recipient.java\npackage com.piggymetrics.notification.domain;\n\
+    \nimport jakarta.validation.constraints.Email;\nimport org.springframework.data.annotation.Id;\nimport org.springframework.data.mongodb.core.mapping.Document;\n\
+    \nimport jakarta.validation.Valid;\nimport jakarta.validation.constraints.NotNull;\nimport java.util.Map;\n\n@Document(collection\
+    \ = \"recipients\")\npublic class Recipient {\n\n\t@Id\n\tprivate String accountName;\n\n\t@NotNull\n\t@Email\n\tprivate\
+    \ String email;\n\n\t@Valid\n\tprivate Map<NotificationType, NotificationSettings> scheduledNotifications;\n\n\tpublic\
+    \ String getAccountName() {\n\t\treturn accountName;\n\t}\n\n\tpublic void setAccountName(String accountName) {\n\t\t\
+    this.accountName = accountName;\n\t}\n\n\tpublic String getEmail() {\n\t\treturn email;\n\t}\n\n\tpublic void setEmail(String\
+    \ email) {\n\t\tthis.email = email;\n\t}\n\n\tpublic Map<NotificationType, NotificationSettings> getScheduledNotifications()\
+    \ {\n\t\treturn scheduledNotifications;\n\t}\n\n\tpublic void setScheduledNotifications(Map<NotificationType, NotificationSettings>\
+    \ scheduledNotifications) {\n\t\tthis.scheduledNotifications = scheduledNotifications;\n\t}\n\n\t@Override\n\tpublic String\
+    \ toString() {\n\t\treturn \"Recipient{\" +\n\t\t\t\t\"accountName='\" + accountName + '\\'' +\n\t\t\t\t\", email='\"\
+    \ + email + '\\'' +\n\t\t\t\t'}';\n\t}\n}\n\n---\n# notification-service/src/main/java/com/piggymetrics/notification/service/EmailService.java\n\
+    package com.piggymetrics.notification.service;\n\nimport com.piggymetrics.notification.domain.NotificationType;\nimport\
+    \ com.piggymetrics.notification.domain.Recipient;\n\nimport jakarta.mail.MessagingException;\nimport java.io.IOException;\n\
+    \npublic interface EmailService {\n\n\tvoid send(NotificationType type, Recipient recipient, String attachment) throws\
+    \ MessagingException, IOException;\n\n}\n\n---\n# notification-service/src/main/java/com/piggymetrics/notification/service/EmailServiceImpl.java\n\
+    package com.piggymetrics.notification.service;\n\nimport com.piggymetrics.notification.domain.NotificationType;\nimport\
+    \ com.piggymetrics.notification.domain.Recipient;\nimport org.slf4j.Logger;\nimport org.slf4j.LoggerFactory;\nimport org.springframework.beans.factory.annotation.Autowired;\n\
+    import org.springframework.cloud.context.config.annotation.RefreshScope;\nimport org.springframework.core.env.Environment;\n\
+    import org.springframework.core.io.ByteArrayResource;\nimport org.springframework.mail.javamail.JavaMailSender;\nimport\
+    \ org.springframework.mail.javamail.MimeMessageHelper;\nimport org.springframework.stereotype.Service;\nimport org.springframework.util.StringUtils;\n\
+    \nimport jakarta.mail.MessagingException;\nimport jakarta.mail.internet.MimeMessage;\nimport java.io.IOException;\nimport\
+    \ java.text.MessageFormat;\n\n@Service\n@RefreshScope\npublic class EmailServiceImpl implements EmailService {\n\n\tprivate\
+    \ final Logger log = LoggerFactory.getLogger(getClass());\n\n\t@Autowired\n\tprivate JavaMailSender mailSender;\n\n\t\
+    @Autowired\n\tprivate Environment env;\n\n\t@Override\n\tpublic void send(NotificationType type, Recipient recipient,\
+    \ String attachment) throws MessagingException, IOException {\n\n\t\tfinal String subject = env.getProperty(type.getSubject());\n\
+    \t\tfinal String text = MessageFormat.format(env.getProperty(type.getText()), recipient.getAccountName());\n\n\t\tMimeMessage\
+    \ message = mailSender.createMimeMessage();\n\n\t\tMimeMessageHelper helper = new MimeMessageHelper(message, true);\n\t\
+    \thelper.setTo(recipient.getEmail());\n\t\thelper.setSubject(subject);\n\t\thelper.setText(text);\n\n\t\tif (StringUtils.hasLength(attachment))\
+    \ {\n\t\t\thelper.addAttachment(env.getProperty(type.getAttachment()), new ByteArrayResource(attachment.getBytes()));\n\
+    \t\t}\n\n\t\tmailSender.send(message);\n\n\t\tlog.info(\"{} email notification has been send to {}\", type, recipient.getEmail());\n\
+    \t}\n}\n\n---\n# notification-service/src/test/java/com/piggymetrics/notification/service/EmailServiceImplTest.java\n\
+    package com.piggymetrics.notification.service;\n\nimport com.piggymetrics.notification.domain.NotificationType;\nimport\
+    \ com.piggymetrics.notification.domain.Recipient;\nimport org.junit.Before;\nimport org.junit.Test;\nimport org.mockito.ArgumentCaptor;\n\
+    import org.mockito.Captor;\nimport org.mockito.InjectMocks;\nimport org.mockito.Mock;\nimport org.springframework.core.env.Environment;\n\
+    import org.springframework.mail.javamail.JavaMailSender;\n\nimport jakarta.mail.MessagingException;\nimport jakarta.mail.Session;\n\
+    import jakarta.mail.internet.MimeMessage;\nimport java.io.IOException;\nimport java.util.Properties;\n\nimport static\
+    \ org.junit.Assert.assertEquals;\nimport static org.mockito.Mockito.verify;\nimport static org.mockito.Mockito.when;\n\
+    import static org.mockito.MockitoAnnotations.initMocks;\n\npublic class EmailServiceImplTest {\n\n\t@InjectMocks\n\tprivate\
+    \ EmailServiceImpl emailService;\n\n\t@Mock\n\tprivate JavaMailSender mailSender;\n\n\t@Mock\n\tprivate Environment env;\n\
+    \n\t@Captor\n\tprivate ArgumentCaptor<MimeMessage> captor;\n\n\t@Before\n\tpublic void setup() {\n\t\tinitMocks(this);\n\
+    \t\twhen(mailSender.createMimeMessage())\n\t\t\t\t.thenReturn(new MimeMessage(Session.getDefaultInstance(new Properties())));\n\
+    \t}\n\n\t@Test\n\tpublic void shouldSendBackupEmail() throws MessagingException, IOException {\n\n\t\tfinal String subject\
+    \ = \"subject\";\n\t\tfinal String text = \"text\";\n\t\tfinal String attachment = \"attachment.json\";\n\n\t\tRecipient\
+    \ recipient = new Recipient();\n\t\trecipient.setAccountName(\"test\");\n\t\trecipient.setEmail(\"test@test.com\");\n\n\
+    \t\twhen(env.getProperty(NotificationType.BACKUP.getSubject())).thenReturn(subject);\n\t\twhen(env.getProperty(NotificationType.BACKUP.getText())).thenReturn(text);\n\
+    \t\twhen(env.getProperty(NotificationType.BACKUP.getAttachment())).thenReturn(attachment);\n\n\t\temailService.send(NotificationType.BACKUP,\
+    \ recipient, \"{\\\"name\\\":\\\"test\\\"\");\n\n\t\tverify(mailSender).send(captor.capture());\n\n\t\tMimeMessage message\
+    \ = captor.getValue();\n\t\tassertEquals(subject, message.getSubject());\n\t\t// TODO check other fields\n\t}\n\n\t@Test\n\
+    \tpublic void shouldSendRemindEmail() throws MessagingException, IOException {\n\n\t\tfinal String subject = \"subject\"\
+    ;\n\t\tfinal String text = \"text\";\n\n\t\tRecipient recipient = new Recipient();\n\t\trecipient.setAccountName(\"test\"\
+    );\n\t\trecipient.setEmail(\"test@test.com\");\n\n\t\twhen(env.getProperty(NotificationType.REMIND.getSubject())).thenReturn(subject);\n\
+    \t\twhen(env.getProperty(NotificationType.REMIND.getText())).thenReturn(text);\n\n\t\temailService.send(NotificationType.REMIND,\
+    \ recipient, null);\n\n\t\tverify(mailSender).send(captor.capture());\n\n\t\tMimeMessage message = captor.getValue();\n\
+    \t\tassertEquals(subject, message.getSubject());\n\t\t// TODO check other fields\n\t}\n}\n---\n# notification-service/src/test/java/com/piggymetrics/notification/service/NotificationServiceImplTest.java\n\
+    package com.piggymetrics.notification.service;\n\nimport com.google.common.collect.ImmutableList;\nimport com.piggymetrics.notification.client.AccountServiceClient;\n\
+    import com.piggymetrics.notification.domain.NotificationType;\nimport com.piggymetrics.notification.domain.Recipient;\n\
+    import org.junit.Before;\nimport org.junit.Test;\nimport org.mockito.InjectMocks;\nimport org.mockito.Mock;\n\nimport\
+    \ jakarta.mail.MessagingException;\nimport java.io.IOException;\n\nimport static org.mockito.Mockito.*;\nimport static\
+    \ org.mockito.MockitoAnnotations.initMocks;\n\npublic class NotificationServiceImplTest {\n\n\t@InjectMocks\n\tprivate\
+    \ NotificationServiceImpl notificationService;\n\n\t@Mock\n\tprivate RecipientService recipientService;\n\n\t@Mock\n\t\
+    private AccountServiceClient client;\n\n\t@Mock\n\tprivate EmailService emailService;\n\n\t@Before\n\tpublic void setup()\
+    \ {\n\t\tinitMocks(this);\n\t}\n\n\t@Test\n\tpublic void shouldSendBackupNotificationsEvenWhenErrorsOccursForSomeRecipients()\
+    \ throws IOException, MessagingException, InterruptedException {\n\n\t\tfinal String attachment = \"json\";\n\n\t\tRecipient\
+    \ withError = new Recipient();\n\t\twithError.setAccountName(\"with-error\");\n\n\t\tRecipient withNoError = new Recipient();\n\
+    \t\twithNoError.setAccountName(\"with-no-error\");\n\n\t\twhen(client.getAccount(withError.getAccountName())).thenThrow(new\
+    \ RuntimeException());\n\t\twhen(client.getAccount(withNoError.getAccountName())).thenReturn(attachment);\n\n\t\twhen(recipientService.findReadyToNotify(NotificationType.BACKUP)).thenReturn(ImmutableList.of(withNoError,\
+    \ withError));\n\n\t\tnotificationService.sendBackupNotifications();\n\n\t\t// TODO test concurrent code in a right way\n\
+    \n\t\tverify(emailService, timeout(100)).send(NotificationType.BACKUP, withNoError, attachment);\n\t\tverify(recipientService,\
+    \ timeout(100)).markNotified(NotificationType.BACKUP, withNoError);\n\n\t\tverify(recipientService, never()).markNotified(NotificationType.BACKUP,\
+    \ withError);\n\t}\n\n\t@Test\n\tpublic void shouldSendRemindNotificationsEvenWhenErrorsOccursForSomeRecipients() throws\
+    \ IOException, MessagingException, InterruptedException {\n\n\t\tfinal String attachment = \"json\";\n\n\t\tRecipient\
+    \ withError = new Recipient();\n\t\twithError.setAccountName(\"with-error\");\n\n\t\tRecipient withNoError = new Recipient();\n\
+    \t\twithNoError.setAccountName(\"with-no-error\");\n\n\t\twhen(recipientService.findReadyToNotify(NotificationType.REMIND)).thenReturn(ImmutableList.of(withNoError,\
+    \ withError));\n\t\tdoThrow(new RuntimeException()).when(emailService).send(NotificationType.REMIND, withError, null);\n\
+    \n\t\tnotificationService.sendRemindNotifications();\n\n\t\t// TODO test concurrent code in a right way\n\n\t\tverify(emailService,\
+    \ timeout(100)).send(NotificationType.REMIND, withNoError, null);\n\t\tverify(recipientService, timeout(100)).markNotified(NotificationType.REMIND,\
+    \ withNoError);\n\n\t\tverify(recipientService, never()).markNotified(NotificationType.REMIND, withError);\n\t}\n}"
+  exact_commands:
+  - rg -n 'javax\.(validation|mail)' notification-service/src; test $? -eq 1
+  acceptance:
+  - No javax.validation or javax.mail imports remain under notification-service/src
+  rollback: git checkout HEAD -- notification-service/src
+  why: Notification module mixes validation and JavaMail APIs that move to jakarta on Boot 3.
+  expected_result: Notification service compiles against jakarta.validation and jakarta.mail.
+  files:
+  - notification-service/src/main/java/com/piggymetrics/notification/controller/RecipientController.java
+  - notification-service/src/main/java/com/piggymetrics/notification/domain/NotificationSettings.java
+  - notification-service/src/main/java/com/piggymetrics/notification/domain/Recipient.java
+  - notification-service/src/main/java/com/piggymetrics/notification/service/EmailService.java
+  - notification-service/src/main/java/com/piggymetrics/notification/service/EmailServiceImpl.java
+  - notification-service/src/test/java/com/piggymetrics/notification/service/EmailServiceImplTest.java
+  - notification-service/src/test/java/com/piggymetrics/notification/service/NotificationServiceImplTest.java
+  machine_verify:
+  - rg -n 'javax\.(validation|mail)' notification-service/src; test $? -eq 1
+- depends_on:
+  - STEP-016
+  - STEP-015
+  - STEP-025
+  requirement_refs:
+  - REQ-P2-T19
+  - REQ-P3-T12
+  - REQ-P3-T16
+  - REQ-P4-T5
+  decision_refs:
+  - D-006
+  - D-007
+  evidence_refs:
+  - R-001
+  companion_required: true
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn -pl account-service -am -Dtest=StatisticsServiceClientFallbackTest test
+  id: STEP-029
+  title: P3.T12 P2.T19 Keep Feign fallbacks and green StatisticsServiceClientFallbackTest
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClient.java
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClientFallback.java
+  - account-service/src/main/java/com/piggymetrics/account/client/AuthServiceClient.java
+  - account-service/src/test/java/com/piggymetrics/account/client/StatisticsServiceClientFallbackTest.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/client/ExchangeRatesClient.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/client/ExchangeRatesClientFallback.java
+  - notification-service/src/main/java/com/piggymetrics/notification/client/AccountServiceClient.java
+  existing_implementation: StatisticsServiceClient @FeignClient fallback=... APPLICATION_JSON_UTF8_VALUE; FallbackTest feign.hystrix.enabled=true
+    OutputCapture
+  line_anchor: StatisticsServiceClient.java:L10
+  before_snippet: '@FeignClient(name = "statistics-service", fallback = StatisticsServiceClientFallback.class)'
+  change: Keep StatisticsServiceClientFallback and ExchangeRatesClientFallback as the Feign fallback classes. Write StatisticsServiceClient
+    and AuthServiceClient consuming APPLICATION_JSON_VALUE. Write StatisticsServiceClientFallbackTest on JUnit 5 with spring.cloud.openfeign.circuitbreaker.enabled=true
+    and OutputCaptureExtension. Keep ExchangeRatesClient fallback attribute. Write AccountServiceClient on APPLICATION_JSON_VALUE
+    when it referenced UTF8.
+  do_not:
+  - Remove fallback= from StatisticsServiceClient or ExchangeRatesClient
+  - Keep feign.hystrix.enabled in the test properties
+  - Lower acceptance to test-compile
+  exact_snippet: "package com.piggymetrics.account.client;\n\nimport com.piggymetrics.account.domain.Account;\nimport org.springframework.cloud.openfeign.FeignClient;\n\
+    import org.springframework.http.MediaType;\nimport org.springframework.web.bind.annotation.PathVariable;\nimport org.springframework.web.bind.annotation.RequestMapping;\n\
+    import org.springframework.web.bind.annotation.RequestMethod;\n\n@FeignClient(name = \"statistics-service\", fallback\
+    \ = StatisticsServiceClientFallback.class)\npublic interface StatisticsServiceClient {\n\n\t@RequestMapping(method = RequestMethod.PUT,\
+    \ value = \"/statistics/{accountName}\", consumes = MediaType.APPLICATION_JSON_VALUE)\n\tvoid updateStatistics(@PathVariable(\"\
+    accountName\") String accountName, Account account);\n\n}\n"
+  exact_companion: "# StatisticsServiceClientFallback.java unchanged component body retained\npackage com.piggymetrics.account.client;\n\
+    \nimport com.piggymetrics.account.domain.Account;\nimport org.slf4j.Logger;\nimport org.slf4j.LoggerFactory;\nimport org.springframework.stereotype.Component;\n\
+    \n/**\n * @author cdov\n */\n@Component\npublic class StatisticsServiceClientFallback implements StatisticsServiceClient\
+    \ {\n    private static final Logger LOGGER = LoggerFactory.getLogger(StatisticsServiceClientFallback.class);\n    @Override\n\
+    \    public void updateStatistics(String accountName, Account account) {\n        LOGGER.error(\"Error during update statistics\
+    \ for account: {}\", accountName);\n    }\n}\n\n---\n# StatisticsServiceClientFallbackTest.java\npackage com.piggymetrics.account.client;\n\
+    \nimport com.piggymetrics.account.domain.Account;\nimport org.junit.jupiter.api.BeforeEach;\nimport org.junit.jupiter.api.Test;\n\
+    import org.junit.jupiter.api.extension.ExtendWith;\nimport org.springframework.beans.factory.annotation.Autowired;\nimport\
+    \ org.springframework.boot.test.context.SpringBootTest;\nimport org.springframework.boot.test.system.CapturedOutput;\n\
+    import org.springframework.boot.test.system.OutputCaptureExtension;\n\nimport static org.assertj.core.api.Assertions.assertThat;\n\
+    \n@ExtendWith(OutputCaptureExtension.class)\n@SpringBootTest(properties = {\n        \"spring.cloud.openfeign.circuitbreaker.enabled=true\"\
+    \n})\npublic class StatisticsServiceClientFallbackTest {\n    @Autowired\n    private StatisticsServiceClient statisticsServiceClient;\n\
+    \n    @Test\n    public void testUpdateStatisticsWithFailFallback(CapturedOutput output){\n        statisticsServiceClient.updateStatistics(\"\
+    test\", new Account());\n        assertThat(output).contains(\"Error during update statistics for account: test\");\n\
+    \    }\n}\n\n---\n# AuthServiceClient.java\npackage com.piggymetrics.account.client;\n\nimport com.piggymetrics.account.domain.User;\n\
+    import org.springframework.cloud.openfeign.FeignClient;\nimport org.springframework.http.MediaType;\nimport org.springframework.web.bind.annotation.RequestMapping;\n\
+    import org.springframework.web.bind.annotation.RequestMethod;\n\n@FeignClient(name = \"auth-service\")\npublic interface\
+    \ AuthServiceClient {\n\n\t@RequestMapping(method = RequestMethod.POST, value = \"/uaa/users\", consumes = MediaType.APPLICATION_JSON_VALUE)\n\
+    \tvoid createUser(User user);\n\n}\n\n---\n# ExchangeRatesClient.java\npackage com.piggymetrics.statistics.client;\n\n\
+    import com.piggymetrics.statistics.domain.Currency;\nimport com.piggymetrics.statistics.domain.ExchangeRatesContainer;\n\
+    import org.springframework.cloud.openfeign.FeignClient;\nimport org.springframework.web.bind.annotation.RequestMapping;\n\
+    import org.springframework.web.bind.annotation.RequestMethod;\nimport org.springframework.web.bind.annotation.RequestParam;\n\
+    \n@FeignClient(url = \"${rates.url}\", name = \"rates-client\", fallback = ExchangeRatesClientFallback.class)\npublic\
+    \ interface ExchangeRatesClient {\n\n    @RequestMapping(method = RequestMethod.GET, value = \"/latest\")\n    ExchangeRatesContainer\
+    \ getRates(@RequestParam(\"base\") Currency base);\n\n}\n\n---\n# ExchangeRatesClientFallback.java\npackage com.piggymetrics.statistics.client;\n\
+    \nimport com.piggymetrics.statistics.domain.Currency;\nimport com.piggymetrics.statistics.domain.ExchangeRatesContainer;\n\
+    import org.springframework.stereotype.Component;\n\nimport java.util.Collections;\n\n@Component\npublic class ExchangeRatesClientFallback\
+    \ implements ExchangeRatesClient {\n\n    @Override\n    public ExchangeRatesContainer getRates(Currency base) {\n   \
+    \     ExchangeRatesContainer container = new ExchangeRatesContainer();\n        container.setBase(Currency.getBase());\n\
+    \        container.setRates(Collections.emptyMap());\n        return container;\n    }\n}\n\n---\n# AccountServiceClient.java\n\
+    package com.piggymetrics.notification.client;\n\nimport org.springframework.cloud.openfeign.FeignClient;\nimport org.springframework.http.MediaType;\n\
+    import org.springframework.web.bind.annotation.PathVariable;\nimport org.springframework.web.bind.annotation.RequestMapping;\n\
+    import org.springframework.web.bind.annotation.RequestMethod;\n\n@FeignClient(name = \"account-service\")\npublic interface\
+    \ AccountServiceClient {\n\n\t@RequestMapping(method = RequestMethod.GET, value = \"/accounts/{accountName}\", consumes\
+    \ = MediaType.APPLICATION_JSON_VALUE)\n\tString getAccount(@PathVariable(\"accountName\") String accountName);\n\n}\n"
+  exact_commands:
+  - mvn -pl account-service -am -Dtest=StatisticsServiceClientFallbackTest test
+  acceptance:
+  - StatisticsServiceClientFallbackTest passes under mvn test
+  - StatisticsServiceClient still declares fallback = StatisticsServiceClientFallback.class
+  - ExchangeRatesClient still declares fallback = ExchangeRatesClientFallback.class
+  - Test properties use spring.cloud.openfeign.circuitbreaker.enabled=true
+  rollback: git checkout HEAD -- account-service/src/main/java/com/piggymetrics/account/client account-service/src/test/java/com/piggymetrics/account/client
+    statistics-service/src/main/java/com/piggymetrics/statistics/client notification-service/src/main/java/com/piggymetrics/notification/client
+  why: P2.T19 P3.T12 P3.T14 P3.T16 P4.T5 require the named fallbacks and green StatisticsServiceClientFallbackTest on the
+    successor breaker.
+  expected_result: Feign fallbacks remain wired under Resilience4j and the fallback test stays green.
+  files:
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClient.java
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClientFallback.java
+  - account-service/src/main/java/com/piggymetrics/account/client/AuthServiceClient.java
+  - account-service/src/test/java/com/piggymetrics/account/client/StatisticsServiceClientFallbackTest.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/client/ExchangeRatesClient.java
+  - statistics-service/src/main/java/com/piggymetrics/statistics/client/ExchangeRatesClientFallback.java
+  - notification-service/src/main/java/com/piggymetrics/notification/client/AccountServiceClient.java
+  machine_verify:
+  - mvn -pl account-service -am -Dtest=StatisticsServiceClientFallbackTest test
+- depends_on:
+  - STEP-013
+  - STEP-018
+  - STEP-021
+  - STEP-022
+  - STEP-023
+  - STEP-024
+  - STEP-028
+  - STEP-029
+  - STEP-011
+  requirement_refs:
+  - REQ-P1
+  - REQ-P2
+  - REQ-P3
+  - REQ-P4
+  - REQ-GATE
+  decision_refs:
+  - D-001
+  evidence_refs:
+  - R-001
+  companion_required: false
+  compatibility: Maven reactor modules remain packaging jar under com.piggymetrics parent
+  error_handling: Fail the step acceptance command on nonzero Maven exit; do not skip tests
+  invariants:
+  - Module artifactId and finalName stay unchanged
+  - No production business endpoint paths change
+  edge_cases:
+  - BOM-managed versions stay unpinned in module POM dependency entries
+  human_verify:
+  - Open the touched file and confirm the pinned final text is present verbatim
+  tests:
+  - mvn test
+  id: STEP-030
+  title: Run full reactor mvn test acceptance gate
+  exact_files:
+  - pom.xml
+  existing_implementation: Reactor builds on Boot 2.0.3; gate must become mvn test on Boot 3 line
+  line_anchor: pom.xml
+  before_snippet: spring-boot-starter-parent 2.0.3.RELEASE
+  change: After prior STEPs, run the reactor test gate. Acceptance is mvn test across the remaining modules (turbine-stream-service
+    already deleted). Do not use -DskipTests or test-compile as the Done-when gate.
+  do_not:
+  - Use mvn test-compile as the Done-when gate
+  - Use -DskipTests for the final acceptance
+  - Re-add Zuul Hystrix Ribbon markers
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"\
+    http://www.w3.org/2001/XMLSchema-instance\"\n                 xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
+    >\n        <modelVersion>4.0.0</modelVersion>\n\n        <groupId>com.piggymetrics</groupId>\n        <artifactId>piggymetrics</artifactId>\n\
+    \        <version>1.0-SNAPSHOT</version>\n        <packaging>pom</packaging>\n        <name>piggymetrics</name>\n\n  \
+    \      <parent>\n                <groupId>org.springframework.boot</groupId>\n                <artifactId>spring-boot-starter-parent</artifactId>\n\
+    \                <version>3.5.16</version>\n                <relativePath/>\n        </parent>\n\n        <properties>\n\
+    \                <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n                <spring-cloud.version>2025.0.3</spring-cloud.version>\n\
+    \                <java.version>21</java.version>\n        </properties>\n\n        <dependencyManagement>\n          \
+    \      <dependencies>\n                        <dependency>\n                                <groupId>org.springframework.cloud</groupId>\n\
+    \                                <artifactId>spring-cloud-dependencies</artifactId>\n                                <version>${spring-cloud.version}</version>\n\
+    \                                <type>pom</type>\n                                <scope>import</scope>\n           \
+    \             </dependency>\n                </dependencies>\n        </dependencyManagement>\n        \n        <modules>\n\
+    \                <module>config</module>\n                <module>monitoring</module>\n                <module>registry</module>\n\
+    \                <module>gateway</module>\n                <module>auth-service</module>\n                <module>account-service</module>\n\
+    \                <module>statistics-service</module>\n                <module>notification-service</module>\n        </modules>\n\
+    \n</project>\n"
+  exact_commands:
+  - mvn test
+  acceptance:
+  - mvn test exits 0 for the reactor
+  - rg finds no zuul.|EnableZuulProxy|spring-cloud-starter-netflix-zuul
+  - rg finds no hystrix.|EnableHystrix|EnableCircuitBreaker|spring-cloud-starter-netflix-hystrix
+  - rg finds no ribbon.ReadTimeout|ribbon.ConnectTimeout
+  machine_verify:
+  - mvn test
+  rollback: git revert the migration commit range
+  why: GATE FLOOR requires the strongest acceptance that runs tests for P2/P3 Done-when clauses.
+  expected_result: Full reactor tests pass on Spring Boot 3.5.16 Java 21 without Zuul Hystrix Ribbon markers.
+  creates_file: false
+  files:
+  - pom.xml

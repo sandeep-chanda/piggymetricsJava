@@ -1,0 +1,7 @@
+sources:
+- title: Spring Cloud 2025.0 Gateway starter rename
+  url: https://spring.io/blog/2025/05/29/spring-cloud-2025-0-0-is-abvailable
+  used_for: D-004 spring-cloud-starter-gateway-server-webflux and spring.cloud.gateway.server.webflux prefix
+- title: Spring Cloud Gateway StripPrefix docs
+  url: https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-webflux/gatewayfilter-factories/stripprefix-factory.html
+  used_for: omit StripPrefix when former stripPrefix false

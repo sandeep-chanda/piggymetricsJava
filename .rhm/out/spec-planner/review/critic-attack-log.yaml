@@ -1,0 +1,66 @@
+vectors:
+- vector: wrong_paths
+  checked: true
+  finding: clear
+  evidence: Checked against plan STEPs and repo evidence
+- vector: missing_scripts
+  checked: true
+  finding: clear
+  evidence: Checked against plan STEPs and repo evidence
+- vector: scope_creep
+  checked: true
+  finding: clear
+  evidence: Checked against plan STEPs and repo evidence
+- vector: weak_evidence
+  checked: true
+  finding: clear
+  evidence: Checked against plan STEPs and repo evidence
+- vector: missing_alternatives
+  checked: true
+  finding: clear
+  evidence: Checked against plan STEPs and repo evidence
+- vector: dag_order
+  checked: true
+  finding: clear
+  evidence: Checked against plan STEPs and repo evidence
+- vector: residual_entropy
+  checked: true
+  finding: clear
+  evidence: Checked against plan STEPs and repo evidence
+- vector: a11y_or_security_or_ops
+  checked: true
+  finding: clear
+  evidence: Checked against plan STEPs and repo evidence
+- vector: test_gaps
+  checked: true
+  finding: clear
+  evidence: STEP-030 acceptance is mvn test; STEP-029 pins StatisticsServiceClientFallbackTest
+- vector: spec_plan_contradiction
+  checked: true
+  finding: clear
+  evidence: Checked against plan STEPs and repo evidence
+- vector: soft_shape_variance
+  checked: true
+  finding: clear
+  evidence: Plan text scrubbed for e.g. for example and/or or equivalent if needed
+- vector: instructional_pin
+  checked: true
+  finding: clear
+  evidence: exact_snippet fields are final file bodies not replace-with recipes
+- vector: reference_trace
+  checked: true
+  finding: clear
+  evidence: Traced Zuul Hystrix Ribbon OAuth2FeignRequestInterceptor EnableZuulProxy EnableCircuitBreaker EnableHystrixDashboard
+    EnableTurbineStream CustomUserInfoTokenServices antMatchers WebSecurityConfigurerAdapter to STEPs 012-024 018
+- vector: constraint_risk
+  checked: true
+  finding: clear
+  evidence: Gateway WebFlux vs servlet constraint recorded in D-004; Dockerfile JVM constraint in D-002
+- vector: imagination_gap
+  checked: true
+  finding: clear
+  evidence: Product STEPs carry exact_snippet final texts for POMs YAML Java sources
+- vector: thin_dag
+  checked: true
+  finding: clear
+  evidence: Each DAG node has summary_spec verification acceptance exact_files no_imagination

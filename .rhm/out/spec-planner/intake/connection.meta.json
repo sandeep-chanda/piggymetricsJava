@@ -1,0 +1,21 @@
+{
+  "source": "harness-matters",
+  "target_repo_name": "piggymetricsJava",
+  "target_repo_slug": "sandeep-chanda/piggymetricsJava",
+  "target_repo_remote_url": "https://github.com/sandeep-chanda/piggymetricsJava",
+  "target_repo_provider": "github",
+  "target_repo_default_branch": "master",
+  "scm_root": {
+    "host": "github.com",
+    "organization": "sandeep-chanda",
+    "project": "piggymetricsJava"
+  },
+  "sibling_repos": [],
+  "related_trackers": [],
+  "auth": {
+    "provider": "github",
+    "method": "https_x_access_token",
+    "env_refs": ["HM_HARNESS_SCM_TOKEN"],
+    "notes": "Harness Matters SCM token via x-access-token HTTPS"
+  }
+}

@@ -1,0 +1,4 @@
+provider: github
+sibling_repos: []
+discovery: skipped_empty_siblings
+notes: connection.meta lists no siblings; no cross-repo APIs invented

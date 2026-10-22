@@ -1,0 +1,13 @@
+risks:
+- id: RK-001
+  severity: high
+  risk: Spring Authorization Server drops legacy password grant for browser client
+  mitigation: D-008 registers authorization_code+refresh for browser; service clients stay client_credentials
+  decision_refs:
+  - D-008
+- id: RK-002
+  severity: medium
+  risk: Gateway WebFlux cannot use servlet starter
+  mitigation: STEP-005 pins spring-cloud-starter-gateway-server-webflux only
+  decision_refs:
+  - D-004
