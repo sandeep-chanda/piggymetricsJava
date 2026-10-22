@@ -1,25 +1,18 @@
 package com.piggymetrics.statistics.config;
 
-import com.piggymetrics.statistics.service.security.CustomUserInfoTokenServices;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.security.oauth2.resource.ResourceServerProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
-import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
-import org.springframework.security.oauth2.provider.token.ResourceServerTokenServices;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * @author cdov
- */
-@EnableResourceServer
 @Configuration
-public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
-    @Autowired
-    private ResourceServerProperties sso;
+public class ResourceServerConfig {
 
-    @Bean
-    public ResourceServerTokenServices tokenServices() {
-        return new CustomUserInfoTokenServices(sso.getUserInfoUri(), sso.getClientId());
-    }
+	@Bean
+	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+				.oauth2ResourceServer(oauth2 -> oauth2.opaqueToken(Customizer.withDefaults()));
+		return http.build();
+	}
 }

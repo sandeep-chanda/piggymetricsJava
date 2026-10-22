@@ -13,4 +13,4 @@ target/
 # Eclipse
 **/*.project
 **/*.classpath
-**/*.settings
+**/*.settings.rhm/

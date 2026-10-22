@@ -2,8 +2,8 @@ package com.piggymetrics.auth.service.security;
 
 import com.piggymetrics.auth.domain.User;
 import com.piggymetrics.auth.repository.UserRepository;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -11,10 +11,10 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import java.util.Optional;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.any;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.initMocks;
+import org.mockito.MockitoAnnotations;
 
 public class MongoUserDetailsServiceTest {
 
@@ -24,9 +24,9 @@ public class MongoUserDetailsServiceTest {
 	@Mock
 	private UserRepository repository;
 
-	@Before
+	@BeforeEach
 	public void setup() {
-		initMocks(this);
+		MockitoAnnotations.openMocks(this);
 	}
 
 	@Test
@@ -40,8 +40,8 @@ public class MongoUserDetailsServiceTest {
 		assertEquals(user, loaded);
 	}
 
-	@Test(expected = UsernameNotFoundException.class)
+	@Test
 	public void shouldFailToLoadByUsernameWhenUserNotExists() {
-		service.loadUserByUsername("name");
+		org.junit.jupiter.api.Assertions.assertThrows(org.springframework.security.core.userdetails.UsernameNotFoundException.class, () -> service.loadUserByUsername("name"));
 	}
 }

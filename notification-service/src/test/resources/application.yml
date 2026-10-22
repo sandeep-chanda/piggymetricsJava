@@ -1,33 +1,59 @@
-remind:
-  cron: 0 0 0 * * *
-  email:
-    text: "Hey, {0}! We''ve missed you here on PiggyMetrics. It''s time to check your budget statistics.\r\n\r\nCheers,\r\nPiggyMetrics team"
-    subject: PiggyMetrics reminder
-
-backup:
-  cron: 0 0 12 * * *
-  email:
-    text: "Howdy, {0}. Your account backup is ready.\r\n\r\nCheers,\r\nPiggyMetrics team"
-    subject: PiggyMetrics account backup
-    attachment: backup.json
-
 spring:
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+    bus:
+      enabled: false
+    openfeign:
+      circuitbreaker:
+        enabled: true
+  config:
+    import: "optional:configserver:"
+  autoconfigure:
+    exclude:
+      - de.flapdoodle.embed.mongo.spring.autoconfigure.EmbeddedMongoAutoConfiguration
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
   data:
     mongodb:
-      database: piggymetrics
-      port: 0
+      uri: mongodb://127.0.0.1:27017/piggymetrics-notification-test
   mail:
-    host: smtp.gmail.com
-    port: 465
-    username: test
-    password: test
-    properties:
-      mail:
-        smtp:
-          auth: true
-          socketFactory:
-            port: 465
-            class: javax.net.ssl.SSLSocketFactory
-            fallback: false
-          ssl:
-            enable: true
+    host: localhost
+    port: 25
+  security:
+    oauth2:
+      client:
+        registration:
+          notification-service:
+            client-id: notification-service
+            client-secret: password
+            authorization-grant-type: client_credentials
+            scope: server
+            provider: auth-service
+        provider:
+          auth-service:
+            token-uri: http://localhost:9999/uaa/oauth2/token
+      resourceserver:
+        opaque-token:
+          introspection-uri: http://localhost:9999/uaa/oauth2/introspect
+          client-id: notification-service
+          client-secret: password
+
+eureka:
+  client:
+    enabled: false
+
+remind:
+  cron: '-'
+  email:
+    text: "text"
+    subject: subject
+
+backup:
+  cron: '-'
+  email:
+    text: "text"
+    subject: subject
+    attachment: backup.json
+
