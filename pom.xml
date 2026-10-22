@@ -33,7 +33,7 @@
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
-	
+
 	<modules>
 		<module>config</module>
 		<module>monitoring</module>

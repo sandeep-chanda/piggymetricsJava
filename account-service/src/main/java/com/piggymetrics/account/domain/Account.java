@@ -1,7 +1,7 @@
 package com.piggymetrics.account.domain;
 
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
-import org.hibernate.validator.constraints.Length;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -29,7 +29,7 @@ public class Account {
 	@NotNull
 	private Saving saving;
 
-	@Length(min = 0, max = 20_000)
+	@Size(min = 0, max = 20_000)
 	private String note;
 
 	public String getName() {

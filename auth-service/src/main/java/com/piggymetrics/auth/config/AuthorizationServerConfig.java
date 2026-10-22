@@ -22,11 +22,11 @@ import org.springframework.security.oauth2.server.authorization.settings.Authori
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 
 @Configuration
-public class OAuth2AuthorizationConfig {
+public class AuthorizationServerConfig {
 
 	private final Environment env;
 
-	public OAuth2AuthorizationConfig(Environment env) {
+	public AuthorizationServerConfig(Environment env) {
 		this.env = env;
 	}
 

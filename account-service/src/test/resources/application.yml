@@ -41,3 +41,8 @@ eureka:
   client:
     enabled: false
 
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 2s

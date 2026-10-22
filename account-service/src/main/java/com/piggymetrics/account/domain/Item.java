@@ -1,6 +1,6 @@
 package com.piggymetrics.account.domain;
 
-import org.hibernate.validator.constraints.Length;
+import jakarta.validation.constraints.Size;
 
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 public class Item {
 
 	@NotNull
-	@Length(min = 1, max = 20)
+	@Size(min = 1, max = 20)
 	private String title;
 
 	@NotNull
