@@ -1,5 +1,23 @@
 spring:
+  autoconfigure:
+    exclude:
+      - de.flapdoodle.embed.mongo.spring.autoconfigure.EmbeddedMongoAutoConfiguration
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+  config:
+    import: "optional:configserver:"
   data:
     mongodb:
-      database: piggymetrics
-      port: 0
+      uri: mongodb://127.0.0.1:27017/piggymetrics-auth-test
+
+eureka:
+  client:
+    enabled: false
+
+ACCOUNT_SERVICE_PASSWORD: account-pass
+STATISTICS_SERVICE_PASSWORD: statistics-pass
+NOTIFICATION_SERVICE_PASSWORD: notification-pass
+

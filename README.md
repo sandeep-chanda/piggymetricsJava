@@ -110,10 +110,10 @@ public List<DataPoint> getStatisticsByAccountName(@PathVariable String name) {
 ### API Gateway
 API Gateway is a single entry point into the system, used to handle requests and routing them to the appropriate backend service or by [aggregating results from a scatter-gather call](http://techblog.netflix.com/2013/01/optimizing-netflix-api.html). Also, it can be used for authentication, insights, stress and canary testing, service migration, static response handling and active traffic management.
 
-Netflix opensourced [such an edge service](http://techblog.netflix.com/2013/06/announcing-zuul-edge-service-in-cloud.html) and Spring Cloud allows to use it with a single `@EnableZuulProxy` annotation. In this project, we use Zuul to store some static content (the UI application) and to route requests to appropriate the microservices. Here's a simple prefix-based routing configuration for the Notification service:
+Netflix opensourced [such an edge service](http://techblog.netflix.com/2013/06/announcing-gateway-edge-service-in-cloud.html) and Spring Cloud allows to use it with a single `@SpringBootApplication (Spring Cloud Gateway)` annotation. In this project, we use Gateway to store some static content (the UI application) and to route requests to appropriate the microservices. Here's a simple prefix-based routing configuration for the Notification service:
 
 ```yml
-zuul:
+gateway:
   routes:
     notification-service:
         path: /notifications/**
@@ -122,7 +122,7 @@ zuul:
 
 ```
 
-That means all requests starting with `/notifications` will be routed to the Notification service. There is no hardcoded addresses, as you can see. Zuul uses [Service discovery](https://github.com/sqshq/PiggyMetrics/blob/master/README.md#service-discovery) mechanism to locate Notification service instances and also [Circuit Breaker and Load Balancer](https://github.com/sqshq/PiggyMetrics/blob/master/README.md#http-client-load-balancer-and-circuit-breaker), described below.
+That means all requests starting with `/notifications` will be routed to the Notification service. There is no hardcoded addresses, as you can see. Gateway uses [Service discovery](https://github.com/sqshq/PiggyMetrics/blob/master/README.md#service-discovery) mechanism to locate Notification service instances and also [Circuit Breaker and Load Balancer](https://github.com/sqshq/PiggyMetrics/blob/master/README.md#http-client-load-balancer-and-circuit-breaker), described below.
 
 ### Service Discovery
 

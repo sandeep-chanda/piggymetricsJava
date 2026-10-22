@@ -1,16 +1,52 @@
-hystrix:
-  command:
-    default:
-      execution:
-        isolation:
-          thread:
-            timeoutInMilliseconds: 20000
-
 spring:
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+    bus:
+      enabled: false
+    openfeign:
+      circuitbreaker:
+        enabled: true
+  config:
+    import: "optional:configserver:"
+  autoconfigure:
+    exclude:
+      - de.flapdoodle.embed.mongo.spring.autoconfigure.EmbeddedMongoAutoConfiguration
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
   data:
     mongodb:
-      database: piggymetrics
-      port: 0
+      uri: mongodb://127.0.0.1:27017/piggymetrics-statistics-test
+  security:
+    oauth2:
+      client:
+        registration:
+          statistics-service:
+            client-id: statistics-service
+            client-secret: password
+            authorization-grant-type: client_credentials
+            scope: server
+            provider: auth-service
+        provider:
+          auth-service:
+            token-uri: http://localhost:9999/uaa/oauth2/token
+      resourceserver:
+        opaque-token:
+          introspection-uri: http://localhost:9999/uaa/oauth2/introspect
+          client-id: statistics-service
+          client-secret: password
+
+eureka:
+  client:
+    enabled: false
+
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 20s
 
 rates:
-  url: https://api.exchangeratesapi.io
+  url: http://127.0.0.1:9
+

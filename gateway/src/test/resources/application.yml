@@ -1,0 +1,18 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
+  config:
+    import: "optional:configserver:"
+
+eureka:
+  client:
+    enabled: false
