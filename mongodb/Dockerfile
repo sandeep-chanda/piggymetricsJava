@@ -1,4 +1,4 @@
-FROM mongo:3
+FROM eclipse-temurin:21-jre
 MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
 
 ADD init.sh /init.sh
