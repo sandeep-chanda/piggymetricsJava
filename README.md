@@ -100,7 +100,7 @@ On the client side, everything works exactly the same as with traditional sessio
 Each PiggyMetrics client has a scope: `server` for backend services and `ui` - for the browser. We can use `@PreAuthorize` annotation to protect controllers from  an external access:
 
 ``` java
-@PreAuthorize("#oauth2.hasScope('server')")
+@PreAuthorize("hasAuthority('SCOPE_server')")
 @RequestMapping(value = "accounts/{name}", method = RequestMethod.GET)
 public List<DataPoint> getStatisticsByAccountName(@PathVariable String name) {
 	return statisticsService.findByAccountName(name);
@@ -164,7 +164,7 @@ Here is an example from the Account Service:
 @FeignClient(name = "statistics-service")
 public interface StatisticsServiceClient {
 
-	@RequestMapping(method = RequestMethod.PUT, value = "/statistics/{accountName}", consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)
+	@RequestMapping(method = RequestMethod.PUT, value = "/statistics/{accountName}", consumes = MediaType.APPLICATION_JSON_VALUE)
 	void updateStatistics(@PathVariable("accountName") String accountName, Account account);
 
 }
