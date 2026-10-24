@@ -1,0 +1,11 @@
+assumptions:
+- id: A-001
+  text: Settlement means account-service saveChanges push to statistics-service updateStatistics
+  rationale: Only outbound mutating client on account update path
+- id: A-002
+  text: P1 lands all four Goal items inside account-service; statistics-service code stays unchanged this
+    plan
+  rationale: Current Task P1 names account-service enhancement and listed account-service files
+- id: A-003
+  text: Keep Java 1.8 / java:8-jre images; no JVM major bump
+  rationale: Micrometer works on Boot 2.0.3 without raising JVM

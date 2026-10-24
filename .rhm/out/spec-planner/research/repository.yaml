@@ -1,0 +1,34 @@
+target: piggymetricsJava
+account_service:
+  port: 6000
+  context_path: /accounts
+  endpoints:
+  - GET /{name}
+  - GET /current
+  - PUT /current
+  - POST /
+  clients:
+    AuthServiceClient:
+      path: POST /uaa/users
+      fallback: null
+      on_failure: propagate
+    StatisticsServiceClient:
+      path: PUT /statistics/{accountName}
+      fallback: StatisticsServiceClientFallback
+      on_failure: fallback
+  collection: accounts
+  tests:
+  - AccountServiceApplicationTests
+  - StatisticsServiceClientFallbackTest
+  - AccountControllerTest
+  - AccountRepositoryTest
+  - AccountServiceTest
+must_reuse:
+- account-service/src/main/java/com/piggymetrics/account/AccountApplication.java
+- account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+- account-service/src/main/java/com/piggymetrics/account/client/AuthServiceClient.java
+- account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClient.java
+- config/src/main/resources/shared/account-service.yml
+- config/src/main/resources/shared/gateway.yml
+dockerfiles_java8:
+- account-service/Dockerfile FROM java:8-jre

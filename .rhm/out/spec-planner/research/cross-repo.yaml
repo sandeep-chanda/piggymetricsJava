@@ -1,0 +1,4 @@
+provider: github
+siblings_examined: false
+reason: Spec names single target piggymetricsJava; harness forbids fetching another repository
+discovery_unavailable: false

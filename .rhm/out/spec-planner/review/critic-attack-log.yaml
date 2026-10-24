@@ -1,0 +1,66 @@
+result: PASS
+vectors:
+- vector: wrong_paths
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for wrong_paths; no open issue for P1 settlement observability package
+- vector: missing_scripts
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for missing_scripts; no open issue for P1 settlement observability package
+- vector: scope_creep
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for scope_creep; no open issue for P1 settlement observability package
+- vector: weak_evidence
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for weak_evidence; no open issue for P1 settlement observability package
+- vector: missing_alternatives
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for missing_alternatives; no open issue for P1 settlement observability package
+- vector: dag_order
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for dag_order; no open issue for P1 settlement observability package
+- vector: residual_entropy
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for residual_entropy; no open issue for P1 settlement observability package
+- vector: a11y_or_security_or_ops
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for a11y_or_security_or_ops; no open issue for P1 settlement observability package
+- vector: test_gaps
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for test_gaps; no open issue for P1 settlement observability package
+- vector: spec_plan_contradiction
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for spec_plan_contradiction; no open issue for P1 settlement observability package
+- vector: soft_shape_variance
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for soft_shape_variance; no open issue for P1 settlement observability package
+- vector: instructional_pin
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for instructional_pin; no open issue for P1 settlement observability package
+- vector: reference_trace
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for reference_trace; no open issue for P1 settlement observability package
+- vector: constraint_risk
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for constraint_risk; no open issue for P1 settlement observability package
+- vector: imagination_gap
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for imagination_gap; no open issue for P1 settlement observability package
+- vector: thin_dag
+  checked: true
+  finding: clear
+  evidence: Reviewed plan/iDAG/research for thin_dag; no open issue for P1 settlement observability package

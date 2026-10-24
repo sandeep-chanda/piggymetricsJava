@@ -1,0 +1,9 @@
+result: PASS
+checks:
+  plan_mode_no_target_writes: true
+  execution_depth_validated: true
+  playbook_importer_completed: true
+  critic_pass: true
+  scorecard_all_10: true
+  dag_full_skeleton: true
+  gate_floor_mvn_test: true

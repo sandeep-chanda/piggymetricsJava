@@ -1,0 +1,7 @@
+risks:
+- id: RK-001
+  risk: Spring MVC /{name} captures observability
+  mitigation: Literal path /observability/dashboard; covered by controller test
+- id: RK-002
+  risk: Fallback swallow hides failures from service
+  mitigation: Thread flag via markAttemptFailed/consumeFailedFlag

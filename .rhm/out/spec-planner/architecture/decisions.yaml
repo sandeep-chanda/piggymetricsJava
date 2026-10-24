@@ -1,0 +1,84 @@
+- id: D-001
+  decision: Implement all four Goal items for P1 inside account-service (metrics, retry+counter, dashboard,
+    tests)
+  alternatives:
+  - Split dashboard into monitoring module
+  - Add metrics only to statistics-service first
+  chosen: account-service landing module per Current Task P1
+  rationale: P1 todos name account-service paths; monitoring is platform not a unit
+  evidence_refs:
+  - R-001
+  consequences:
+  - statistics-service production code unchanged in P1
+  constraints:
+  - Preserve gateway /accounts/** route
+  rejected_with_reason:
+  - alt: monitoring module dashboard
+    why: Out of scope platform module; Spec says lands in account-service
+- id: D-002
+  decision: Externalize retry as account.settlement.retry in shared account-service.yml
+  alternatives:
+  - Hardcode retry in Java
+  - Use Ribbon retry only
+  chosen: account.settlement.retry.max-attempts / backoff-ms
+  rationale: P1.T6 requires new keys beside module config; Config Server native profile already loads
+    this file
+  evidence_refs:
+  - R-002
+  consequences:
+  - SettlementProperties @ConfigurationProperties prefix account.settlement
+  constraints: []
+  rejected_with_reason:
+  - alt: Hardcode
+    why: Violates P1.T6
+- id: D-003
+  decision: Use Micrometer Timer p95 + Counter via MeterRegistry; pin micrometer-core in pom; keep Java
+    8 images
+  alternatives:
+  - Custom sliding window without Micrometer
+  - Upgrade Boot/Micrometer needing newer JDK
+  chosen: Micrometer on Boot 2.0.3 + explicit micrometer-core coordinate
+  rationale: Actuator already present; harness requires coordinates for imports; no JVM major bump so
+    Dockerfiles stay java:8-jre
+  evidence_refs:
+  - R-003
+  consequences:
+  - account-service/pom.xml edited
+  constraints:
+  - Do not ban pom.xml in do_not
+  rejected_with_reason:
+  - alt: JVM 17 upgrade
+    why: Would force every Dockerfile FROM change; unnecessary
+- id: D-004
+  decision: Auth failures propagate; statistics failures use fallback that marks failed-batch then service-layer
+    retry
+  alternatives:
+  - Fallback on auth too
+  - Throw from statistics fallback
+  chosen: Keep Auth without fallback; enhance StatisticsServiceClientFallback + retry in AccountServiceImpl
+  rationale: Matches Verification E1/E2 and existing Feign annotations
+  evidence_refs:
+  - R-004
+  consequences:
+  - Fallback gains SettlementObservability dependency
+  constraints:
+  - StatisticsServiceClient keeps fallback attribute
+  rejected_with_reason:
+  - alt: Auth fallback
+    why: Violates P1.T4 propagate
+- id: D-005
+  decision: Acceptance gate is mvn test at repository root
+  alternatives:
+  - mvn -DskipTests
+  - mvn test-compile
+  chosen: mvn test
+  rationale: GATE FLOOR + Spec Definition of Done
+  evidence_refs:
+  - R-006
+  consequences:
+  - STEP-014 blocks on full suite
+  constraints:
+  - Snippets must include coordinates needed to compile/tests
+  rejected_with_reason:
+  - alt: test-compile
+    why: Does not run tests

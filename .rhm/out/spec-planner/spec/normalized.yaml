@@ -1,0 +1,49 @@
+task_id: walk-e2e-20261024-scenario-P1
+title: walk-e2e-20261024-scenario
+plan_key: P1
+requirements:
+- id: REQ-P1
+  text: Extend account-service per P1.T1–T11; behaviour holds in module tests
+- id: REQ-METRIC
+  text: Expose p95 settlement latency metric
+- id: REQ-RETRY
+  text: Failed-batch counter with retry on statistics settlement
+- id: REQ-DASH
+  text: Dashboard endpoint reads p95 and failed-batch counter
+- id: REQ-TEST
+  text: Tests for metric, retry/fallback, dashboard
+- id: REQ-CFG
+  text: New keys in shared account-service.yml
+- id: REQ-DOC
+  text: Extend Account document
+- id: REQ-REPO
+  text: Repository query for failed batches
+- id: REQ-AUTH
+  text: Auth client POST /uaa/users failures propagate
+- id: REQ-STATS
+  text: Statistics client PUT uses fallback on failure
+- id: REQ-GATE
+  text: mvn test passes before PR
+todos:
+- P1.T1
+- P1.T2
+- P1.T3
+- P1.T4
+- P1.T5
+- P1.T6
+- P1.T7
+- P1.T8
+- P1.T9
+- P1.T10
+- P1.T11
+out_of_scope_modules:
+- auth-service
+- gateway
+- monitoring
+- notification-service
+- registry
+- turbine-stream-service
+platform_modules:
+- config
+jvm: '1.8'
+spring_boot: 2.0.3.RELEASE

@@ -1,0 +1,8 @@
+id: R-006
+title: Verification gate is mvn test
+detail: Travis language java; root aggregator; Spec GATE FLOOR forbids test-compile/-DskipTests as strongest
+  acceptance.
+evidence_paths:
+- account-service/src/main/java/com/piggymetrics/account/service/AccountServiceImpl.java
+- account-service/pom.xml
+- config/src/main/resources/shared/account-service.yml

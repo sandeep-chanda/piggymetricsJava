@@ -1,0 +1,2 @@
+triggered: false
+reason: Enhancement on existing Spring Boot 2.0.3 / Java 8 stack; no platform migration

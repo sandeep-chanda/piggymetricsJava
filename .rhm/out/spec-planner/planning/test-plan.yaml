@@ -1,0 +1,18 @@
+gate: mvn test
+module_focus: account-service
+cases:
+- id: T-APP
+  class: AccountServiceApplicationTests
+  todo: P1.T7
+- id: T-FB
+  class: StatisticsServiceClientFallbackTest
+  todo: P1.T8
+- id: T-CTL
+  class: AccountControllerTest
+  todo: P1.T9
+- id: T-REPO
+  class: AccountRepositoryTest
+  todo: P1.T10
+- id: T-SVC
+  class: AccountServiceTest
+  todo: P1.T11

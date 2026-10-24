@@ -1,0 +1,12 @@
+task_id: walk-e2e-20261024-scenario-P1
+spec_path: /agent/piggymetricsJava/.rhm/out/spec-planner/intake/raw-spec.md
+target_repo_path: /agent/piggymetricsJava
+connection_meta_path: /agent/piggymetricsJava/.rhm/out/spec-planner/intake/connection.meta.json
+related_repos: []
+mode: plan_only
+constraints:
+- Cursor Plan Mode only
+- No writes to target repository production code
+- Writes under .rhm/out/spec-planner/
+- 'HM Harness: skip SwitchMode; write PLAYBOOK directly then import meta'
+created_at: '2026-10-24T05:42:11Z'

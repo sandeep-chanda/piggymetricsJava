@@ -1,0 +1,13 @@
+result: PASS
+critical_unanswered: []
+qa:
+- q: What exact_snippet defines the p95 metric holder?
+  a: final SettlementObservability.java pin registers Timer account.settlement.latency with publishPercentiles(0.95); artifact
+    shape is the full class body in STEP-003 exact_snippet
+- q: What exact_snippet defines the dashboard endpoint?
+  a: AccountController exact_snippet adds GET /observability/dashboard returning SettlementDashboard companion DTO
+- q: How does failed-batch detection work when Feign fallback swallows errors?
+  a: StatisticsServiceClientFallback exact_snippet calls markAttemptFailed; AccountServiceImpl exact_snippet retries using
+    consumeFailedFlag
+- q: What command is the Done gate?
+  a: exact_commands mvn test at repository root

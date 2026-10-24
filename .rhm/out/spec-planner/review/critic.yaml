@@ -1,0 +1,27 @@
+result: PASS
+loops: 1
+attacks:
+- vector: imagination_gap
+  result: PASS
+  notes: All product STEPs pin exact_snippet final text
+- vector: thin_dag
+  result: PASS
+  notes: Nodes carry summary_spec verification acceptance
+- vector: soft_shape
+  result: PASS
+  notes: No e.g./or-equivalent in change pins
+- vector: instructional_pin
+  result: PASS
+  notes: Snippets are final files not edit recipes
+- vector: reference_trace
+  result: PASS
+  notes: No renames of existing HTTP paths; new symbols Settlement* added with tests
+- vector: constraint_risk
+  result: PASS
+  notes: N/A UI layout; API additive fields
+- vector: gate_floor
+  result: PASS
+  notes: STEP-014 acceptance is mvn test
+- vector: coordinate_gap
+  result: PASS
+  notes: micrometer-core pinned in STEP-002

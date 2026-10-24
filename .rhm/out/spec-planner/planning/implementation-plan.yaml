@@ -1,0 +1,1174 @@
+task_id: walk-e2e-20261024-scenario-P1
+summary: P1 Extend account-service with p95 settlement latency, failed-batch counter+retry, GET /observability/dashboard,
+  and module tests (P1.T1–T11).
+plan_key: P1
+spec: walk-e2e-20261024-scenario
+target_repo: piggymetricsJava
+steps:
+- id: STEP-001
+  title: P1.T6 Add account.settlement config keys and SettlementProperties
+  depends_on: []
+  requirement_refs:
+  - REQ-P1
+  - REQ-CFG
+  decision_refs:
+  - D-001
+  - D-002
+  evidence_refs:
+  - R-001
+  - R-002
+  files:
+  - config/src/main/resources/shared/account-service.yml
+  - account-service/src/main/java/com/piggymetrics/account/config/SettlementProperties.java
+  exact_files:
+  - config/src/main/resources/shared/account-service.yml
+  - account-service/src/main/java/com/piggymetrics/account/config/SettlementProperties.java
+  existing_implementation: config/src/main/resources/shared/account-service.yml:1-26
+  before_snippet: "security:\n  oauth2:\n    client:\n      clientId: account-service\n      clientSecret:\
+    \ ${ACCOUNT_SERVICE_PASSWORD}\n      accessTokenUri: http://auth-service:5000/uaa/oauth/token\n  \
+    \    grant-type: client_credentials\n      scope: server\n\nspring:\n  data:\n    mongodb:\n     \
+    \ host: account-mongodb\n      username: user\n      password: ${MONGODB_PASSWORD}\n      database:\
+    \ piggymetrics\n      port: 27017\n\nserver:\n  servlet:\n    context-path: /accounts\n  port: 6000\n\
+    \nfeign:\n  hystrix:\n    enabled: true"
+  creates_file: false
+  change: Append account.settlement.retry.max-attempts and backoff-ms beside the module's shared account-service.yml
+    keys, and create SettlementProperties bound to prefix account.settlement so saveChanges retry uses
+    config rather than hardcoding.
+  do_not:
+  - Change gateway.yml route paths for /accounts/**
+  - Raise java.version or rewrite Dockerfiles
+  - Remove feign.hystrix.enabled
+  companion_required: true
+  exact_companion: "package com.piggymetrics.account.config;\n\nimport org.springframework.boot.context.properties.ConfigurationProperties;\n\
+    import org.springframework.stereotype.Component;\n\n@Component\n@ConfigurationProperties(prefix =\
+    \ \"account.settlement\")\npublic class SettlementProperties {\n\n\tprivate final Retry retry = new\
+    \ Retry();\n\n\tpublic Retry getRetry() {\n\t\treturn retry;\n\t}\n\n\tpublic static class Retry {\n\
+    \n\t\tprivate int maxAttempts = 3;\n\n\t\tprivate long backoffMs = 100L;\n\n\t\tpublic int getMaxAttempts()\
+    \ {\n\t\t\treturn maxAttempts;\n\t\t}\n\n\t\tpublic void setMaxAttempts(int maxAttempts) {\n\t\t\t\
+    this.maxAttempts = maxAttempts;\n\t\t}\n\n\t\tpublic long getBackoffMs() {\n\t\t\treturn backoffMs;\n\
+    \t\t}\n\n\t\tpublic void setBackoffMs(long backoffMs) {\n\t\t\tthis.backoffMs = backoffMs;\n\t\t}\n\
+    \t}\n}\n"
+  exact_snippet: "security:\n  oauth2:\n    client:\n      clientId: account-service\n      clientSecret:\
+    \ ${ACCOUNT_SERVICE_PASSWORD}\n      accessTokenUri: http://auth-service:5000/uaa/oauth/token\n  \
+    \    grant-type: client_credentials\n      scope: server\n\nspring:\n  data:\n    mongodb:\n     \
+    \ host: account-mongodb\n      username: user\n      password: ${MONGODB_PASSWORD}\n      database:\
+    \ piggymetrics\n      port: 27017\n\nserver:\n  servlet:\n    context-path: /accounts\n  port: 6000\n\
+    \nfeign:\n  hystrix:\n    enabled: true\n\naccount:\n  settlement:\n    retry:\n      max-attempts:\
+    \ 3\n      backoff-ms: 100\n"
+  compatibility: Existing oauth2/mongodb/server/feign keys unchanged; new keys additive
+  error_handling: Invalid YAML fails config-server native load at boot
+  tests:
+  - AccountServiceApplicationTests.contextLoads
+  acceptance:
+  - 'account-service.yml contains account.settlement.retry.max-attempts: 3 and backoff-ms: 100'
+  - SettlementProperties.java exists with prefix account.settlement
+  rollback: Revert account-service.yml append and delete SettlementProperties.java
+  why: P1.T6 requires new keys beside the module's own shared config for settlement retry
+  expected_result: Retry limits are externalized for account-service settlement batches
+  invariants:
+  - server.servlet.context-path remains /accounts
+  - server.port remains 6000
+  - feign.hystrix.enabled remains true
+  edge_cases:
+  - Missing account.settlement block falls back to SettlementProperties field defaults 3/100
+  machine_verify:
+  - test -f account-service/src/main/java/com/piggymetrics/account/config/SettlementProperties.java
+  human_verify:
+  - Shared yml shows account.settlement.retry keys under account-service.yml
+  exact_commands:
+  - grep -n 'account.settlement' config/src/main/resources/shared/account-service.yml
+- id: STEP-002
+  title: P1 goal-1 Add micrometer-core coordinate to account-service pom
+  depends_on:
+  - STEP-001
+  requirement_refs:
+  - REQ-METRIC
+  decision_refs:
+  - D-003
+  evidence_refs:
+  - R-003
+  files:
+  - account-service/pom.xml
+  exact_files:
+  - account-service/pom.xml
+  existing_implementation: account-service/pom.xml:51-54
+  before_snippet: "\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n\
+    \t\t</dependency>"
+  creates_file: false
+  change: Add managed coordinate io.micrometer:micrometer-core immediately after spring-boot-starter-actuator
+    so SettlementObservability imports (Timer, Counter, MeterRegistry) resolve under mvn test.
+  do_not:
+  - Change java.version away from 1.8
+  - Replace spring-boot-starter-parent 2.0.3.RELEASE
+  - Ban or skip editing account-service/pom.xml
+  companion_required: false
+  exact_snippet: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\"\
+    \ xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n\txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0\
+    \ http://maven.apache.org/xsd/maven-4.0.0.xsd\">\n\t<modelVersion>4.0.0</modelVersion>\n\n\t<artifactId>account-service</artifactId>\n\
+    \t<version>1.0-SNAPSHOT</version>\n\t<packaging>jar</packaging>\n\n\t<name>account-service</name>\n\
+    \n\t<parent>\n\t\t<groupId>com.piggymetrics</groupId>\n\t\t<artifactId>piggymetrics</artifactId>\n\
+    \t\t<version>1.0-SNAPSHOT</version>\n\t</parent>\n\n\t<dependencies>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\
+    \t\t\t<artifactId>spring-cloud-starter-oauth2</artifactId>\n\t\t</dependency>\n\t\t<dependency>\n\t\
+    \t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-security</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-config</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-web</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-openfeign</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-sleuth</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-data-mongodb</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>io.micrometer</groupId>\n\t\t\t<artifactId>micrometer-core</artifactId>\n\
+    \t\t</dependency>\n\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t\
+    <artifactId>spring-cloud-starter-bus-amqp</artifactId>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t\
+    <groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-starter-netflix-hystrix</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.cloud</groupId>\n\t\t\t<artifactId>spring-cloud-netflix-hystrix-stream</artifactId>\n\
+    \t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>spring-boot-starter-test</artifactId>\n\
+    \t\t\t<scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>de.flapdoodle.embed</groupId>\n\
+    \t\t\t<artifactId>de.flapdoodle.embed.mongo</artifactId>\n\t\t\t<version>1.50.3</version>\n\t\t\t\
+    <scope>test</scope>\n\t\t</dependency>\n\t\t<dependency>\n\t\t\t<groupId>com.jayway.jsonpath</groupId>\n\
+    \t\t\t<artifactId>json-path</artifactId>\n\t\t\t<version>2.2.0</version>\n\t\t\t<scope>test</scope>\n\
+    \t\t</dependency>\n\t</dependencies>\n\t\n\t<build>\n\t\t<plugins>\n\t\t\t<plugin>\n\t\t\t\t<groupId>org.springframework.boot</groupId>\n\
+    \t\t\t\t<artifactId>spring-boot-maven-plugin</artifactId>\n\t\t\t\t<configuration>\n\t\t\t\t\t<finalName>account-service</finalName>\n\
+    \t\t\t\t</configuration>\n\t\t\t</plugin>\n\t\t\t<plugin>\n\t\t\t\t<groupId>org.jacoco</groupId>\n\
+    \t\t\t\t<artifactId>jacoco-maven-plugin</artifactId>\n\t\t\t\t<version>0.7.6.201602180812</version>\n\
+    \t\t\t\t<executions>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>prepare-agent</goal>\n\
+    \t\t\t\t\t\t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t\t<execution>\n\t\t\t\t\t\t<id>report</id>\n\
+    \t\t\t\t\t\t<phase>test</phase>\n\t\t\t\t\t\t<goals>\n\t\t\t\t\t\t\t<goal>report</goal>\n\t\t\t\t\t\
+    \t</goals>\n\t\t\t\t\t</execution>\n\t\t\t\t</executions>\n\t\t\t</plugin>\n\t\t</plugins>\n\t</build>\n\
+    \n</project>\n"
+  compatibility: Version from spring-boot-dependencies BOM via parent
+  error_handling: Missing coordinate fails compilation of SettlementObservability
+  tests:
+  - mvn -pl account-service -am test
+  acceptance:
+  - account-service/pom.xml contains artifactId micrometer-core
+  - Parent remains spring-boot-starter-parent 2.0.3.RELEASE
+  rollback: Remove the micrometer-core dependency block
+  why: 'Harness rule: a source import the stack must resolve is a missing coordinate in the snippet'
+  expected_result: mvn test can compile Micrometer Timer/Counter usage
+  invariants:
+  - JDK major stays 1.8; Dockerfile FROM java:8-jre unchanged
+  edge_cases:
+  - Do not add micrometer-registry-prometheus unless a STEP pins it
+  machine_verify:
+  - grep micrometer-core account-service/pom.xml
+  human_verify:
+  - pom shows micrometer-core under dependencies
+  exact_commands:
+  - grep -n micrometer-core account-service/pom.xml
+- id: STEP-003
+  title: P1 goal-1 Create SettlementObservability and SettlementDashboard
+  depends_on:
+  - STEP-002
+  requirement_refs:
+  - REQ-METRIC
+  - REQ-DASH
+  decision_refs:
+  - D-001
+  - D-003
+  evidence_refs:
+  - R-001
+  - R-003
+  files:
+  - account-service/src/main/java/com/piggymetrics/account/service/SettlementObservability.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/SettlementDashboard.java
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/service/SettlementObservability.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/SettlementDashboard.java
+  existing_implementation: No SettlementObservability in account-service tree
+  creates_file: true
+  change: Create SettlementObservability registering Micrometer Timer account.settlement.latency with
+    publishPercentiles(0.95) and Counter account.settlement.failed.batch, plus SettlementDashboard DTO
+    used by the dashboard endpoint.
+  do_not:
+  - Put metrics only in monitoring module
+  - Use Dropwizard MetricsRegistry instead of Micrometer
+  companion_required: true
+  exact_companion: "package com.piggymetrics.account.domain;\n\npublic class SettlementDashboard {\n\n\
+    \tprivate double settlementLatencyP95Ms;\n\n\tprivate long failedBatchCount;\n\n\tpublic double getSettlementLatencyP95Ms()\
+    \ {\n\t\treturn settlementLatencyP95Ms;\n\t}\n\n\tpublic void setSettlementLatencyP95Ms(double settlementLatencyP95Ms)\
+    \ {\n\t\tthis.settlementLatencyP95Ms = settlementLatencyP95Ms;\n\t}\n\n\tpublic long getFailedBatchCount()\
+    \ {\n\t\treturn failedBatchCount;\n\t}\n\n\tpublic void setFailedBatchCount(long failedBatchCount)\
+    \ {\n\t\tthis.failedBatchCount = failedBatchCount;\n\t}\n}\n"
+  exact_snippet: "package com.piggymetrics.account.service;\n\nimport com.piggymetrics.account.domain.SettlementDashboard;\n\
+    import io.micrometer.core.instrument.Counter;\nimport io.micrometer.core.instrument.MeterRegistry;\n\
+    import io.micrometer.core.instrument.Timer;\nimport io.micrometer.core.instrument.distribution.HistogramSnapshot;\n\
+    import io.micrometer.core.instrument.distribution.ValueAtPercentile;\nimport org.springframework.stereotype.Component;\n\
+    \nimport java.util.concurrent.TimeUnit;\nimport java.util.concurrent.atomic.AtomicBoolean;\n\n@Component\n\
+    public class SettlementObservability {\n\n\tpublic static final String TIMER_NAME = \"account.settlement.latency\"\
+    ;\n\tpublic static final String COUNTER_NAME = \"account.settlement.failed.batch\";\n\n\tprivate final\
+    \ Timer settlementLatency;\n\tprivate final Counter failedBatchCounter;\n\tprivate final AtomicBoolean\
+    \ lastAttemptFailed = new AtomicBoolean(false);\n\n\tpublic SettlementObservability(MeterRegistry\
+    \ registry) {\n\t\tthis.settlementLatency = Timer.builder(TIMER_NAME)\n\t\t\t\t.publishPercentiles(0.95)\n\
+    \t\t\t\t.publishPercentileHistogram()\n\t\t\t\t.register(registry);\n\t\tthis.failedBatchCounter =\
+    \ Counter.builder(COUNTER_NAME).register(registry);\n\t}\n\n\tpublic void markAttemptFailed() {\n\t\
+    \tlastAttemptFailed.set(true);\n\t\tfailedBatchCounter.increment();\n\t}\n\n\tpublic boolean consumeFailedFlag()\
+    \ {\n\t\treturn lastAttemptFailed.getAndSet(false);\n\t}\n\n\tpublic void recordLatencyNanos(long\
+    \ nanos) {\n\t\tsettlementLatency.record(nanos, TimeUnit.NANOSECONDS);\n\t}\n\n\tpublic SettlementDashboard\
+    \ snapshot() {\n\t\tSettlementDashboard dashboard = new SettlementDashboard();\n\t\tdashboard.setSettlementLatencyP95Ms(readP95Millis());\n\
+    \t\tdashboard.setFailedBatchCount((long) failedBatchCounter.count());\n\t\treturn dashboard;\n\t}\n\
+    \n\tprivate double readP95Millis() {\n\t\tHistogramSnapshot snap = settlementLatency.takeSnapshot();\n\
+    \t\tfor (ValueAtPercentile vap : snap.percentileValues()) {\n\t\t\tif (Math.abs(vap.percentile() -\
+    \ 0.95) < 0.001) {\n\t\t\t\treturn vap.value(TimeUnit.MILLISECONDS);\n\t\t\t}\n\t\t}\n\t\treturn settlementLatency.mean(TimeUnit.MILLISECONDS);\n\
+    \t}\n}\n"
+  compatibility: Component scanned from AccountApplication package root
+  error_handling: markAttemptFailed increments counter and sets thread-local failed flag
+  tests:
+  - AccountServiceApplicationTests.settlementDashboardBeanWired
+  acceptance:
+  - SettlementObservability.snapshot returns settlementLatencyP95Ms and failedBatchCount
+  - Timer name is account.settlement.latency with 0.95 percentile
+  rollback: Delete both new Java files
+  why: Goal items 1 and 2 need a shared in-process metric holder for latency and failed batches
+  expected_result: Coding agent can record latency and read a dashboard snapshot without inventing APIs
+  invariants:
+  - TIMER_NAME account.settlement.latency
+  - COUNTER_NAME account.settlement.failed.batch
+  edge_cases:
+  - consumeFailedFlag clears the flag so retries can re-arm via fallback
+  machine_verify:
+  - test -f account-service/src/main/java/com/piggymetrics/account/service/SettlementObservability.java
+  human_verify:
+  - snapshot maps p95 timer + counter into SettlementDashboard
+  exact_commands:
+  - grep -n 'publishPercentiles(0.95)' account-service/src/main/java/com/piggymetrics/account/service/SettlementObservability.java
+- id: STEP-004
+  title: P1.T2 Extend Account document with settlement fields
+  depends_on:
+  - STEP-003
+  requirement_refs:
+  - REQ-P1
+  - REQ-DOC
+  decision_refs:
+  - D-001
+  evidence_refs:
+  - R-001
+  files:
+  - account-service/src/main/java/com/piggymetrics/account/domain/Account.java
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/domain/Account.java
+  existing_implementation: account-service/src/main/java/com/piggymetrics/account/domain/Account.java:1-82
+  before_snippet: "package com.piggymetrics.account.domain;\n\nimport org.codehaus.jackson.annotate.JsonIgnoreProperties;\n\
+    import org.hibernate.validator.constraints.Length;\nimport org.springframework.data.annotation.Id;\n\
+    import org.springframework.data.mongodb.core.mapping.Document;\n\nimport javax.validation.Valid;\n\
+    import javax.validation.constraints.NotNull;\nimport java.util.Date;\nimport java.util.List;\n\n@Document(collection\
+    \ = \"accounts\")\n@JsonIgnoreProperties(ignoreUnknown = true)\npublic class Account {\n\n\t@Id\n\t\
+    private String name;\n\n\tprivate Date lastSeen;\n\n\t@Valid\n\tprivate List<Item> incomes;\n\n\t\
+    @Valid\n\tprivate List<Item> expenses;\n\n\t@Valid\n\t@NotNull\n\tprivate Saving saving;\n\n\t@Length(min\
+    \ = 0, max = 20_000)\n\tprivate String note;\n\n\tpublic String getName() {\n\t\treturn name;\n\t\
+    }\n\n\tpublic void setName(String name) {\n\t\tthis.name = name;\n\t}\n\n\tpublic Date getLastSeen()\
+    \ {\n\t\treturn lastSeen;\n\t}\n\n\tpublic void setLastSeen(Date lastSeen) {\n\t\tthis.lastSeen =\
+    \ lastSeen;\n\t}\n\n\tpublic List<Item> getIncomes() {\n\t\treturn incomes;\n\t}\n\n\tpublic void\
+    \ setIncomes(List<Item> incomes) {\n\t\tthis.incomes = incomes;\n\t}\n\n\tpublic List<Item> getExpenses()\
+    \ {\n\t\treturn expenses;\n\t}\n\n\tpublic void setExpenses(List<Item> expenses) {\n\t\tthis.expenses\
+    \ = expenses;\n\t}\n\n\tpublic Saving getSaving() {\n\t\treturn saving;\n\t}\n\n\tpublic void setSaving(Saving\
+    \ saving) {\n\t\tthis.saving = saving;\n\t}\n\n\tpublic String getNote() {\n\t\treturn note;\n\t}\n\
+    \n\tpublic void setNote(String note) {\n\t\tthis.note = note;\n\t}\n}\n"
+  creates_file: false
+  change: Extend the accounts MongoDB document with lastSettlementLatencyMs (Long) and failedBatchCount
+    (long) so GET /accounts/{name} and GET /accounts/current expose the latest settlement observability
+    fields persisted on saveChanges.
+  do_not:
+  - Rename collection accounts
+  - Remove @JsonIgnoreProperties(ignoreUnknown = true)
+  - Change @Id name field semantics
+  companion_required: false
+  exact_snippet: "package com.piggymetrics.account.domain;\n\nimport org.codehaus.jackson.annotate.JsonIgnoreProperties;\n\
+    import org.hibernate.validator.constraints.Length;\nimport org.springframework.data.annotation.Id;\n\
+    import org.springframework.data.mongodb.core.mapping.Document;\n\nimport javax.validation.Valid;\n\
+    import javax.validation.constraints.NotNull;\nimport java.util.Date;\nimport java.util.List;\n\n@Document(collection\
+    \ = \"accounts\")\n@JsonIgnoreProperties(ignoreUnknown = true)\npublic class Account {\n\n\t@Id\n\t\
+    private String name;\n\n\tprivate Date lastSeen;\n\n\t@Valid\n\tprivate List<Item> incomes;\n\n\t\
+    @Valid\n\tprivate List<Item> expenses;\n\n\t@Valid\n\t@NotNull\n\tprivate Saving saving;\n\n\t@Length(min\
+    \ = 0, max = 20_000)\n\tprivate String note;\n\n\tprivate Long lastSettlementLatencyMs;\n\n\tprivate\
+    \ long failedBatchCount;\n\n\tpublic String getName() {\n\t\treturn name;\n\t}\n\n\tpublic void setName(String\
+    \ name) {\n\t\tthis.name = name;\n\t}\n\n\tpublic Date getLastSeen() {\n\t\treturn lastSeen;\n\t}\n\
+    \n\tpublic void setLastSeen(Date lastSeen) {\n\t\tthis.lastSeen = lastSeen;\n\t}\n\n\tpublic List<Item>\
+    \ getIncomes() {\n\t\treturn incomes;\n\t}\n\n\tpublic void setIncomes(List<Item> incomes) {\n\t\t\
+    this.incomes = incomes;\n\t}\n\n\tpublic List<Item> getExpenses() {\n\t\treturn expenses;\n\t}\n\n\
+    \tpublic void setExpenses(List<Item> expenses) {\n\t\tthis.expenses = expenses;\n\t}\n\n\tpublic Saving\
+    \ getSaving() {\n\t\treturn saving;\n\t}\n\n\tpublic void setSaving(Saving saving) {\n\t\tthis.saving\
+    \ = saving;\n\t}\n\n\tpublic String getNote() {\n\t\treturn note;\n\t}\n\n\tpublic void setNote(String\
+    \ note) {\n\t\tthis.note = note;\n\t}\n\n\tpublic Long getLastSettlementLatencyMs() {\n\t\treturn\
+    \ lastSettlementLatencyMs;\n\t}\n\n\tpublic void setLastSettlementLatencyMs(Long lastSettlementLatencyMs)\
+    \ {\n\t\tthis.lastSettlementLatencyMs = lastSettlementLatencyMs;\n\t}\n\n\tpublic long getFailedBatchCount()\
+    \ {\n\t\treturn failedBatchCount;\n\t}\n\n\tpublic void setFailedBatchCount(long failedBatchCount)\
+    \ {\n\t\tthis.failedBatchCount = failedBatchCount;\n\t}\n}\n"
+  compatibility: ignoreUnknown keeps old documents readable without new fields
+  error_handling: Absent fields deserialize as null/0
+  tests:
+  - AccountRepositoryTest.shouldFindAccountByName
+  acceptance:
+  - Account has getLastSettlementLatencyMs/setLastSettlementLatencyMs
+  - Account has getFailedBatchCount/setFailedBatchCount
+  rollback: Restore Account.java without the two fields
+  why: P1.T2 Documents the change reads or extends Account (accounts)
+  expected_result: Persisted settlement latency and failed-batch count ride with Account JSON
+  invariants:
+  - '@Document(collection = "accounts") unchanged'
+  - '@Id remains name'
+  edge_cases:
+  - 'Old accounts without fields: failedBatchCount defaults 0; latency null'
+  machine_verify:
+  - grep lastSettlementLatencyMs account-service/src/main/java/com/piggymetrics/account/domain/Account.java
+  human_verify:
+  - Account.java declares both new fields with getters/setters
+  exact_commands:
+  - grep -n 'failedBatchCount' account-service/src/main/java/com/piggymetrics/account/domain/Account.java
+- id: STEP-005
+  title: P1.T3 Add repository query for failed batches
+  depends_on:
+  - STEP-004
+  requirement_refs:
+  - REQ-P1
+  - REQ-REPO
+  decision_refs:
+  - D-001
+  evidence_refs:
+  - R-001
+  files:
+  - account-service/src/main/java/com/piggymetrics/account/repository/AccountRepository.java
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/repository/AccountRepository.java
+  existing_implementation: account-service/src/main/java/com/piggymetrics/account/repository/AccountRepository.java:1-12
+  before_snippet: "package com.piggymetrics.account.repository;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import org.springframework.data.repository.CrudRepository;\nimport org.springframework.stereotype.Repository;\n\
+    \n@Repository\npublic interface AccountRepository extends CrudRepository<Account, String> {\n\n\t\
+    Account findByName(String name);\n\n}\n"
+  creates_file: false
+  change: Keep findByName and add Spring Data query findByFailedBatchCountGreaterThan(long threshold)
+    returning List<Account> for failed-batch observability reads.
+  do_not:
+  - Replace CrudRepository with a custom MongoTemplate-only DAO
+  - Delete findByName
+  companion_required: false
+  exact_snippet: "package com.piggymetrics.account.repository;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import org.springframework.data.repository.CrudRepository;\nimport org.springframework.stereotype.Repository;\n\
+    \nimport java.util.List;\n\n@Repository\npublic interface AccountRepository extends CrudRepository<Account,\
+    \ String> {\n\n\tAccount findByName(String name);\n\n\tList<Account> findByFailedBatchCountGreaterThan(long\
+    \ threshold);\n\n}\n"
+  compatibility: Spring Data method-name query on failedBatchCount field
+  error_handling: Empty list when no accounts exceed threshold
+  tests:
+  - AccountRepositoryTest.shouldFindAccountsWithFailedBatches
+  acceptance:
+  - AccountRepository declares findByFailedBatchCountGreaterThan(long threshold)
+  rollback: Restore repository to findByName-only
+  why: P1.T3 Repository queries for failed-batch observability
+  expected_result: Tests can query accounts with failedBatchCount > 0
+  invariants:
+  - Interface remains @Repository extending CrudRepository<Account, String>
+  edge_cases:
+  - threshold 0 returns every account with failedBatchCount >= 1
+  machine_verify:
+  - grep findByFailedBatchCountGreaterThan account-service/src/main/java/com/piggymetrics/account/repository/AccountRepository.java
+  human_verify:
+  - New query method present beside findByName
+  exact_commands:
+  - grep -n findByFailedBatchCountGreaterThan account-service/src/main/java/com/piggymetrics/account/repository/AccountRepository.java
+- id: STEP-006
+  title: P1.T4 Keep AuthServiceClient POST /uaa/users propagating failures
+  depends_on:
+  - STEP-005
+  requirement_refs:
+  - REQ-P1
+  - REQ-AUTH
+  decision_refs:
+  - D-004
+  evidence_refs:
+  - R-001
+  - R-004
+  files:
+  - account-service/src/main/java/com/piggymetrics/account/client/AuthServiceClient.java
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/client/AuthServiceClient.java
+  existing_implementation: account-service/src/main/java/com/piggymetrics/account/client/AuthServiceClient.java:1-15
+  before_snippet: "package com.piggymetrics.account.client;\n\nimport com.piggymetrics.account.domain.User;\n\
+    import org.springframework.cloud.openfeign.FeignClient;\nimport org.springframework.http.MediaType;\n\
+    import org.springframework.web.bind.annotation.RequestMapping;\nimport org.springframework.web.bind.annotation.RequestMethod;\n\
+    \n@FeignClient(name = \"auth-service\")\npublic interface AuthServiceClient {\n\n\t@RequestMapping(method\
+    \ = RequestMethod.POST, value = \"/uaa/users\", consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)\n\
+    \tvoid createUser(User user);\n\n}\n"
+  creates_file: false
+  change: Leave AuthServiceClient as a Feign client to auth-service POST /uaa/users with no fallback class
+    so create-account failures propagate to the caller (Verification E1).
+  do_not:
+  - Add fallback= to AuthServiceClient
+  - Catch authClient.createUser exceptions inside AccountServiceImpl.create
+  - Change path away from /uaa/users
+  companion_required: false
+  exact_snippet: "package com.piggymetrics.account.client;\n\nimport com.piggymetrics.account.domain.User;\n\
+    import org.springframework.cloud.openfeign.FeignClient;\nimport org.springframework.http.MediaType;\n\
+    import org.springframework.web.bind.annotation.RequestMapping;\nimport org.springframework.web.bind.annotation.RequestMethod;\n\
+    \n@FeignClient(name = \"auth-service\")\npublic interface AuthServiceClient {\n\n\t@RequestMapping(method\
+    \ = RequestMethod.POST, value = \"/uaa/users\", consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)\n\
+    \tvoid createUser(User user);\n\n}\n"
+  compatibility: Existing create() flow continues to call authClient.createUser(user) first
+  error_handling: Feign/Hystrix errors propagate; no fallback swallow
+  tests:
+  - AccountServiceTest.shouldPropagateAuthServiceFailureOnCreate
+  acceptance:
+  - AuthServiceClient has no fallback attribute
+  - createUser mapping remains POST /uaa/users
+  rollback: N/A if file unchanged from pin
+  why: P1.T4 and Verification E1 require auth-service failures to propagate
+  expected_result: POST /accounts still fails when auth-service createUser fails
+  invariants:
+  - '@FeignClient(name = "auth-service") without fallback'
+  edge_cases:
+  - Network error and 4xx/5xx both surface to AccountController caller
+  machine_verify:
+  - grep -n 'fallback' account-service/src/main/java/com/piggymetrics/account/client/AuthServiceClient.java
+    || true
+  human_verify:
+  - AuthServiceClient source shows no fallback= attribute
+  exact_commands:
+  - grep -n FeignClient account-service/src/main/java/com/piggymetrics/account/client/AuthServiceClient.java
+- id: STEP-007
+  title: P1.T5 Wire statistics fallback failed-batch mark and settlement retry latency
+  depends_on:
+  - STEP-006
+  - STEP-003
+  requirement_refs:
+  - REQ-P1
+  - REQ-STATS
+  - REQ-METRIC
+  - REQ-RETRY
+  decision_refs:
+  - D-001
+  - D-004
+  evidence_refs:
+  - R-001
+  - R-004
+  files:
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClient.java
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClientFallback.java
+  - account-service/src/main/java/com/piggymetrics/account/service/AccountService.java
+  - account-service/src/main/java/com/piggymetrics/account/service/AccountServiceImpl.java
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClient.java
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClientFallback.java
+  - account-service/src/main/java/com/piggymetrics/account/service/AccountService.java
+  - account-service/src/main/java/com/piggymetrics/account/service/AccountServiceImpl.java
+  existing_implementation: AccountServiceImpl.saveChanges lines 76-91; StatisticsServiceClientFallback
+    logs only
+  before_snippet: "package com.piggymetrics.account.client;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import org.slf4j.Logger;\nimport org.slf4j.LoggerFactory;\nimport org.springframework.stereotype.Component;\n\
+    \n/**\n * @author cdov\n */\n@Component\npublic class StatisticsServiceClientFallback implements StatisticsServiceClient\
+    \ {\n    private static final Logger LOGGER = LoggerFactory.getLogger(StatisticsServiceClientFallback.class);\n\
+    \    @Override\n    public void updateStatistics(String accountName, Account account) {\n        LOGGER.error(\"\
+    Error during update statistics for account: {}\", accountName);\n    }\n}\n"
+  creates_file: false
+  change: Keep StatisticsServiceClient Feign PUT /statistics/{accountName} with fallback class; enhance
+    StatisticsServiceClientFallback to call SettlementObservability.markAttemptFailed; rewrite AccountServiceImpl.saveChanges
+    to retry updateStatistics up to account.settlement.retry.max-attempts with backoff, record latency
+    nanos into the p95 timer, persist lastSettlementLatencyMs and bump failedBatchCount when unsettled;
+    extend AccountService with getSettlementDashboard(); create() must still call authClient.createUser
+    without catching.
+  do_not:
+  - Remove fallback from StatisticsServiceClient
+  - Add fallback to AuthServiceClient
+  - Skip editing AccountServiceImpl (required for retry and latency)
+  - Lower acceptance to mvn test-compile or -DskipTests
+  companion_required: true
+  exact_companion: "package com.piggymetrics.account.client;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import org.springframework.cloud.openfeign.FeignClient;\nimport org.springframework.http.MediaType;\n\
+    import org.springframework.web.bind.annotation.PathVariable;\nimport org.springframework.web.bind.annotation.RequestMapping;\n\
+    import org.springframework.web.bind.annotation.RequestMethod;\n\n@FeignClient(name = \"statistics-service\"\
+    , fallback = StatisticsServiceClientFallback.class)\npublic interface StatisticsServiceClient {\n\n\
+    \t@RequestMapping(method = RequestMethod.PUT, value = \"/statistics/{accountName}\", consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)\n\
+    \tvoid updateStatistics(@PathVariable(\"accountName\") String accountName, Account account);\n\n}\n\
+    \n---\npackage com.piggymetrics.account.service;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import com.piggymetrics.account.domain.SettlementDashboard;\nimport com.piggymetrics.account.domain.User;\n\
+    \npublic interface AccountService {\n\n\t/**\n\t * Finds account by given name\n\t *\n\t * @param\
+    \ accountName\n\t * @return found account\n\t */\n\tAccount findByName(String accountName);\n\n\t\
+    /**\n\t * Checks if account with the same name already exists\n\t * Invokes Auth Service user creation\n\
+    \t * Creates new account with default parameters\n\t *\n\t * @param user\n\t * @return created account\n\
+    \t */\n\tAccount create(User user);\n\n\t/**\n\t * Validates and applies incoming account updates\n\
+    \t * Invokes Statistics Service update\n\t *\n\t * @param name\n\t * @param update\n\t */\n\tvoid\
+    \ saveChanges(String name, Account update);\n\n\t/**\n\t * Returns p95 settlement latency and failed-batch\
+    \ counter snapshot.\n\t *\n\t * @return settlement dashboard metrics\n\t */\n\tSettlementDashboard\
+    \ getSettlementDashboard();\n}\n"
+  exact_snippet: "package com.piggymetrics.account.client;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import com.piggymetrics.account.service.SettlementObservability;\nimport org.slf4j.Logger;\nimport\
+    \ org.slf4j.LoggerFactory;\nimport org.springframework.beans.factory.annotation.Autowired;\nimport\
+    \ org.springframework.stereotype.Component;\n\n/**\n * @author cdov\n */\n@Component\npublic class\
+    \ StatisticsServiceClientFallback implements StatisticsServiceClient {\n\tprivate static final Logger\
+    \ LOGGER = LoggerFactory.getLogger(StatisticsServiceClientFallback.class);\n\n\t@Autowired\n\tprivate\
+    \ SettlementObservability settlementObservability;\n\n\t@Override\n\tpublic void updateStatistics(String\
+    \ accountName, Account account) {\n\t\tLOGGER.error(\"Error during update statistics for account:\
+    \ {}\", accountName);\n\t\tsettlementObservability.markAttemptFailed();\n\t}\n}\n\n---\npackage com.piggymetrics.account.service;\n\
+    \nimport com.piggymetrics.account.client.AuthServiceClient;\nimport com.piggymetrics.account.client.StatisticsServiceClient;\n\
+    import com.piggymetrics.account.config.SettlementProperties;\nimport com.piggymetrics.account.domain.Account;\n\
+    import com.piggymetrics.account.domain.Currency;\nimport com.piggymetrics.account.domain.Saving;\n\
+    import com.piggymetrics.account.domain.SettlementDashboard;\nimport com.piggymetrics.account.domain.User;\n\
+    import com.piggymetrics.account.repository.AccountRepository;\nimport org.slf4j.Logger;\nimport org.slf4j.LoggerFactory;\n\
+    import org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.stereotype.Service;\n\
+    import org.springframework.util.Assert;\n\nimport java.math.BigDecimal;\nimport java.util.Date;\n\n\
+    @Service\npublic class AccountServiceImpl implements AccountService {\n\n\tprivate final Logger log\
+    \ = LoggerFactory.getLogger(getClass());\n\n\t@Autowired\n\tprivate StatisticsServiceClient statisticsClient;\n\
+    \n\t@Autowired\n\tprivate AuthServiceClient authClient;\n\n\t@Autowired\n\tprivate AccountRepository\
+    \ repository;\n\n\t@Autowired\n\tprivate SettlementObservability settlementObservability;\n\n\t@Autowired\n\
+    \tprivate SettlementProperties settlementProperties;\n\n\t/**\n\t * {@inheritDoc}\n\t */\n\t@Override\n\
+    \tpublic Account findByName(String accountName) {\n\t\tAssert.hasLength(accountName);\n\t\treturn\
+    \ repository.findByName(accountName);\n\t}\n\n\t/**\n\t * {@inheritDoc}\n\t * Auth failures from POST\
+    \ /uaa/users propagate to the caller (no Feign fallback).\n\t */\n\t@Override\n\tpublic Account create(User\
+    \ user) {\n\n\t\tAccount existing = repository.findByName(user.getUsername());\n\t\tAssert.isNull(existing,\
+    \ \"account already exists: \" + user.getUsername());\n\n\t\tauthClient.createUser(user);\n\n\t\t\
+    Saving saving = new Saving();\n\t\tsaving.setAmount(new BigDecimal(0));\n\t\tsaving.setCurrency(Currency.getDefault());\n\
+    \t\tsaving.setInterest(new BigDecimal(0));\n\t\tsaving.setDeposit(false);\n\t\tsaving.setCapitalization(false);\n\
+    \n\t\tAccount account = new Account();\n\t\taccount.setName(user.getUsername());\n\t\taccount.setLastSeen(new\
+    \ Date());\n\t\taccount.setSaving(saving);\n\t\taccount.setFailedBatchCount(0L);\n\n\t\trepository.save(account);\n\
+    \n\t\tlog.info(\"new account has been created: \" + account.getName());\n\n\t\treturn account;\n\t\
+    }\n\n\t/**\n\t * {@inheritDoc}\n\t */\n\t@Override\n\tpublic void saveChanges(String name, Account\
+    \ update) {\n\n\t\tAccount account = repository.findByName(name);\n\t\tAssert.notNull(account, \"\
+    can't find account with name \" + name);\n\n\t\taccount.setIncomes(update.getIncomes());\n\t\taccount.setExpenses(update.getExpenses());\n\
+    \t\taccount.setSaving(update.getSaving());\n\t\taccount.setNote(update.getNote());\n\t\taccount.setLastSeen(new\
+    \ Date());\n\n\t\tlong started = System.nanoTime();\n\t\tint maxAttempts = settlementProperties.getRetry().getMaxAttempts();\n\
+    \t\tlong backoffMs = settlementProperties.getRetry().getBackoffMs();\n\t\tboolean settled = false;\n\
+    \t\tfor (int attempt = 1; attempt <= maxAttempts; attempt++) {\n\t\t\tstatisticsClient.updateStatistics(name,\
+    \ account);\n\t\t\tif (!settlementObservability.consumeFailedFlag()) {\n\t\t\t\tsettled = true;\n\t\
+    \t\t\tbreak;\n\t\t\t}\n\t\t\tif (attempt < maxAttempts && backoffMs > 0L) {\n\t\t\t\ttry {\n\t\t\t\
+    \t\tThread.sleep(backoffMs);\n\t\t\t\t} catch (InterruptedException ie) {\n\t\t\t\t\tThread.currentThread().interrupt();\n\
+    \t\t\t\t\tbreak;\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tlong elapsed = System.nanoTime() - started;\n\t\t\
+    settlementObservability.recordLatencyNanos(elapsed);\n\t\taccount.setLastSettlementLatencyMs(elapsed\
+    \ / 1_000_000L);\n\t\tif (!settled) {\n\t\t\taccount.setFailedBatchCount(account.getFailedBatchCount()\
+    \ + 1L);\n\t\t}\n\n\t\trepository.save(account);\n\n\t\tlog.debug(\"account {} changes has been saved\"\
+    , name);\n\t}\n\n\t/**\n\t * {@inheritDoc}\n\t */\n\t@Override\n\tpublic SettlementDashboard getSettlementDashboard()\
+    \ {\n\t\treturn settlementObservability.snapshot();\n\t}\n}\n"
+  compatibility: Hystrix fallback remains Verification E2 path when statistics-service is down
+  error_handling: Fallback marks failed flag; service retries; exhausted retries increment account.failedBatchCount
+  tests:
+  - AccountServiceTest.shouldRetryStatisticsUpdateAndCountFailedBatch
+  - StatisticsServiceClientFallbackTest.testUpdateStatisticsWithFailFallback
+  acceptance:
+  - StatisticsServiceClientFallback calls settlementObservability.markAttemptFailed()
+  - saveChanges retries updateStatistics up to maxAttempts from SettlementProperties
+  - saveChanges calls settlementObservability.recordLatencyNanos
+  - Auth create path still has no try/catch around authClient.createUser
+  rollback: Restore Fallback, AccountService, AccountServiceImpl, StatisticsServiceClient from git
+  why: Goal items 1-2 and P1.T5 require failed-batch counter with retry on statistics fallback
+  expected_result: Settlement latency recorded; failed batches counted; stats failures use fallback+retry
+  invariants:
+  - StatisticsServiceClient keeps fallback=StatisticsServiceClientFallback.class
+  - PUT path remains /statistics/{accountName}
+  - Gateway /statistics/** route untouched
+  edge_cases:
+  - backoffMs 0 skips sleep between retries
+  - InterruptedException during sleep restores interrupt and stops retrying
+  - Successful first attempt must not increment account.failedBatchCount
+  machine_verify:
+  - grep markAttemptFailed account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClientFallback.java
+  human_verify:
+  - saveChanges loop uses settlementProperties.getRetry().getMaxAttempts()
+  exact_commands:
+  - grep -n 'recordLatencyNanos' account-service/src/main/java/com/piggymetrics/account/service/AccountServiceImpl.java
+- id: STEP-008
+  title: P1.T1 Add GET /observability/dashboard on AccountController
+  depends_on:
+  - STEP-007
+  requirement_refs:
+  - REQ-P1
+  - REQ-DASH
+  decision_refs:
+  - D-001
+  evidence_refs:
+  - R-001
+  files:
+  - account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+  existing_implementation: account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java:1-39
+  before_snippet: "package com.piggymetrics.account.controller;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import com.piggymetrics.account.domain.User;\nimport com.piggymetrics.account.service.AccountService;\n\
+    import org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.security.access.prepost.PreAuthorize;\n\
+    import org.springframework.web.bind.annotation.*;\n\nimport javax.validation.Valid;\nimport java.security.Principal;\n\
+    \n@RestController\npublic class AccountController {\n\n\t@Autowired\n\tprivate AccountService accountService;\n\
+    \n\t@PreAuthorize(\"#oauth2.hasScope('server') or #name.equals('demo')\")\n\t@RequestMapping(path\
+    \ = \"/{name}\", method = RequestMethod.GET)\n\tpublic Account getAccountByName(@PathVariable String\
+    \ name) {\n\t\treturn accountService.findByName(name);\n\t}\n\n\t@RequestMapping(path = \"/current\"\
+    , method = RequestMethod.GET)\n\tpublic Account getCurrentAccount(Principal principal) {\n\t\treturn\
+    \ accountService.findByName(principal.getName());\n\t}\n\n\t@RequestMapping(path = \"/current\", method\
+    \ = RequestMethod.PUT)\n\tpublic void saveCurrentAccount(Principal principal, @Valid @RequestBody\
+    \ Account account) {\n\t\taccountService.saveChanges(principal.getName(), account);\n\t}\n\n\t@RequestMapping(path\
+    \ = \"/\", method = RequestMethod.POST)\n\tpublic Account createNewAccount(@Valid @RequestBody User\
+    \ user) {\n\t\treturn accountService.create(user);\n\t}\n}\n"
+  creates_file: false
+  change: Keep GET /{name}, GET /current, PUT /current, POST / and add GET /observability/dashboard returning
+    SettlementDashboard from accountService.getSettlementDashboard() so the dashboard reads both p95 latency
+    and failed-batch counter (Goal item 3).
+  do_not:
+  - Change context-path away from /accounts
+  - Remove PreAuthorize on getAccountByName
+  - Place dashboard under statistics-service in this P1 plan
+  companion_required: false
+  exact_snippet: "package com.piggymetrics.account.controller;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import com.piggymetrics.account.domain.SettlementDashboard;\nimport com.piggymetrics.account.domain.User;\n\
+    import com.piggymetrics.account.service.AccountService;\nimport org.springframework.beans.factory.annotation.Autowired;\n\
+    import org.springframework.security.access.prepost.PreAuthorize;\nimport org.springframework.web.bind.annotation.*;\n\
+    \nimport javax.validation.Valid;\nimport java.security.Principal;\n\n@RestController\npublic class\
+    \ AccountController {\n\n\t@Autowired\n\tprivate AccountService accountService;\n\n\t@PreAuthorize(\"\
+    #oauth2.hasScope('server') or #name.equals('demo')\")\n\t@RequestMapping(path = \"/{name}\", method\
+    \ = RequestMethod.GET)\n\tpublic Account getAccountByName(@PathVariable String name) {\n\t\treturn\
+    \ accountService.findByName(name);\n\t}\n\n\t@RequestMapping(path = \"/current\", method = RequestMethod.GET)\n\
+    \tpublic Account getCurrentAccount(Principal principal) {\n\t\treturn accountService.findByName(principal.getName());\n\
+    \t}\n\n\t@RequestMapping(path = \"/current\", method = RequestMethod.PUT)\n\tpublic void saveCurrentAccount(Principal\
+    \ principal, @Valid @RequestBody Account account) {\n\t\taccountService.saveChanges(principal.getName(),\
+    \ account);\n\t}\n\n\t@RequestMapping(path = \"/\", method = RequestMethod.POST)\n\tpublic Account\
+    \ createNewAccount(@Valid @RequestBody User user) {\n\t\treturn accountService.create(user);\n\t}\n\
+    \n\t@RequestMapping(path = \"/observability/dashboard\", method = RequestMethod.GET)\n\tpublic SettlementDashboard\
+    \ getSettlementDashboard() {\n\t\treturn accountService.getSettlementDashboard();\n\t}\n}\n"
+  compatibility: ResourceServerConfig anyRequest().authenticated() covers /observability/dashboard; POST
+    / remains permitAll
+  error_handling: Delegates to service; no local try/catch
+  tests:
+  - AccountControllerTest.shouldReturnSettlementDashboard
+  acceptance:
+  - AccountController maps GET /observability/dashboard to getSettlementDashboard
+  - Existing four account endpoints remain
+  rollback: Restore AccountController.java
+  why: P1.T1 endpoints the change reaches plus Goal item 3 dashboard
+  expected_result: Clients can GET /accounts/observability/dashboard for both metrics
+  invariants:
+  - GET /{name}, GET /current, PUT /current, POST / signatures unchanged aside from imports
+  edge_cases:
+  - Path observability/dashboard must not be captured by /{name} — declare dashboard mapping (Spring MVC
+    prefers literal path)
+  machine_verify:
+  - grep observability/dashboard account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+  human_verify:
+  - Controller returns SettlementDashboard JSON fields
+  exact_commands:
+  - grep -n 'observability/dashboard' account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+- id: STEP-009
+  title: P1.T7 Extend AccountServiceApplicationTests for dashboard wiring
+  depends_on:
+  - STEP-008
+  requirement_refs:
+  - REQ-TEST
+  decision_refs:
+  - D-001
+  evidence_refs:
+  - R-005
+  files:
+  - account-service/src/test/java/com/piggymetrics/account/AccountServiceApplicationTests.java
+  exact_files:
+  - account-service/src/test/java/com/piggymetrics/account/AccountServiceApplicationTests.java
+  existing_implementation: AccountServiceApplicationTests.contextLoads
+  before_snippet: "package com.piggymetrics.account;\n\nimport org.junit.Test;\nimport org.junit.runner.RunWith;\n\
+    import org.springframework.boot.test.context.SpringBootTest;\nimport org.springframework.test.context.junit4.SpringRunner;\n\
+    \n@RunWith(SpringRunner.class)\n@SpringBootTest\npublic class AccountServiceApplicationTests {\n\n\
+    \t@Test\n\tpublic void contextLoads() {\n\n\t}\n\n}\n"
+  creates_file: false
+  change: Extend AccountServiceApplicationTests with settlementDashboardBeanWired asserting AccountService.getSettlementDashboard
+    returns non-null metrics with non-negative values.
+  do_not:
+  - Delete contextLoads
+  - Disable Eureka via unrelated global config changes outside test resources
+  companion_required: false
+  exact_snippet: "package com.piggymetrics.account;\n\nimport com.piggymetrics.account.domain.SettlementDashboard;\n\
+    import com.piggymetrics.account.service.AccountService;\nimport org.junit.Test;\nimport org.junit.runner.RunWith;\n\
+    import org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.boot.test.context.SpringBootTest;\n\
+    import org.springframework.test.context.junit4.SpringRunner;\n\nimport static org.junit.Assert.assertNotNull;\n\
+    import static org.junit.Assert.assertTrue;\n\n@RunWith(SpringRunner.class)\n@SpringBootTest\npublic\
+    \ class AccountServiceApplicationTests {\n\n\t@Autowired\n\tprivate AccountService accountService;\n\
+    \n\t@Test\n\tpublic void contextLoads() {\n\n\t}\n\n\t@Test\n\tpublic void settlementDashboardBeanWired()\
+    \ {\n\t\tSettlementDashboard dashboard = accountService.getSettlementDashboard();\n\t\tassertNotNull(dashboard);\n\
+    \t\tassertTrue(dashboard.getFailedBatchCount() >= 0L);\n\t\tassertTrue(dashboard.getSettlementLatencyP95Ms()\
+    \ >= 0.0d);\n\t}\n\n}\n"
+  compatibility: Uses existing @SpringBootTest with test bootstrap.yml eureka.client.enabled=false
+  error_handling: Failure indicates SettlementObservability not wired
+  tests:
+  - AccountServiceApplicationTests.settlementDashboardBeanWired
+  acceptance:
+  - New test method settlementDashboardBeanWired exists and asserts dashboard fields
+  rollback: Restore previous AccountServiceApplicationTests.java
+  why: P1.T7 Extend test AccountServiceApplicationTests
+  expected_result: Context load proves observability beans and dashboard API on AccountService
+  invariants:
+  - '@RunWith(SpringRunner.class) @SpringBootTest retained'
+  edge_cases:
+  - 'Fresh context: p95 may be 0.0 and failedBatchCount 0'
+  machine_verify:
+  - grep settlementDashboardBeanWired account-service/src/test/java/com/piggymetrics/account/AccountServiceApplicationTests.java
+  human_verify:
+  - Test autowires AccountService and calls getSettlementDashboard
+  exact_commands:
+  - grep -n settlementDashboardBeanWired account-service/src/test/java/com/piggymetrics/account/AccountServiceApplicationTests.java
+- id: STEP-010
+  title: P1.T8 Extend StatisticsServiceClientFallbackTest for failed-batch mark
+  depends_on:
+  - STEP-007
+  requirement_refs:
+  - REQ-TEST
+  - REQ-STATS
+  decision_refs:
+  - D-004
+  evidence_refs:
+  - R-005
+  files:
+  - account-service/src/test/java/com/piggymetrics/account/client/StatisticsServiceClientFallbackTest.java
+  exact_files:
+  - account-service/src/test/java/com/piggymetrics/account/client/StatisticsServiceClientFallbackTest.java
+  existing_implementation: StatisticsServiceClientFallbackTest.testUpdateStatisticsWithFailFallback
+  before_snippet: "package com.piggymetrics.account.client;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import org.junit.Before;\nimport org.junit.Rule;\nimport org.junit.Test;\nimport org.junit.runner.RunWith;\n\
+    import org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.boot.test.context.SpringBootTest;\n\
+    import org.springframework.boot.test.rule.OutputCapture;\nimport org.springframework.test.context.junit4.SpringRunner;\n\
+    \nimport static org.hamcrest.Matchers.containsString;\n\n/**\n * @author cdov\n */\n@RunWith(SpringRunner.class)\n\
+    @SpringBootTest(properties = {\n        \"feign.hystrix.enabled=true\"\n})\npublic class StatisticsServiceClientFallbackTest\
+    \ {\n    @Autowired\n    private StatisticsServiceClient statisticsServiceClient;\n\n    @Rule\n \
+    \   public final OutputCapture outputCapture = new OutputCapture();\n\n    @Before\n    public void\
+    \ setup() {\n        outputCapture.reset();\n    }\n\n    @Test\n    public void testUpdateStatisticsWithFailFallback(){\n\
+    \        statisticsServiceClient.updateStatistics(\"test\", new Account());\n\n        outputCapture.expect(containsString(\"\
+    Error during update statistics for account: test\"));\n\n    }\n\n}\n\n"
+  creates_file: false
+  change: Extend StatisticsServiceClientFallbackTest to autowire SettlementObservability and assert fallback
+    increments failed-batch counter and sets consumeFailedFlag true while retaining the log OutputCapture
+    expectation.
+  do_not:
+  - Remove feign.hystrix.enabled=true test property
+  - Assert against auth-service
+  companion_required: false
+  exact_snippet: "package com.piggymetrics.account.client;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import com.piggymetrics.account.service.SettlementObservability;\nimport org.junit.Before;\nimport\
+    \ org.junit.Rule;\nimport org.junit.Test;\nimport org.junit.runner.RunWith;\nimport org.springframework.beans.factory.annotation.Autowired;\n\
+    import org.springframework.boot.test.context.SpringBootTest;\nimport org.springframework.boot.test.rule.OutputCapture;\n\
+    import org.springframework.test.context.junit4.SpringRunner;\n\nimport static org.hamcrest.Matchers.containsString;\n\
+    import static org.junit.Assert.assertTrue;\n\n/**\n * @author cdov\n */\n@RunWith(SpringRunner.class)\n\
+    @SpringBootTest(properties = {\n\t\t\"feign.hystrix.enabled=true\"\n})\npublic class StatisticsServiceClientFallbackTest\
+    \ {\n\t@Autowired\n\tprivate StatisticsServiceClient statisticsServiceClient;\n\n\t@Autowired\n\t\
+    private SettlementObservability settlementObservability;\n\n\t@Rule\n\tpublic final OutputCapture\
+    \ outputCapture = new OutputCapture();\n\n\t@Before\n\tpublic void setup() {\n\t\toutputCapture.reset();\n\
+    \t}\n\n\t@Test\n\tpublic void testUpdateStatisticsWithFailFallback(){\n\t\tlong before = settlementObservability.snapshot().getFailedBatchCount();\n\
+    \t\tstatisticsServiceClient.updateStatistics(\"test\", new Account());\n\n\t\toutputCapture.expect(containsString(\"\
+    Error during update statistics for account: test\"));\n\t\tassertTrue(settlementObservability.consumeFailedFlag());\n\
+    \t\tassertTrue(settlementObservability.snapshot().getFailedBatchCount() > before);\n\t}\n\n}\n"
+  compatibility: Same SpringBootTest + OutputCapture pattern
+  error_handling: Asserts counter increased after fallback invocation
+  tests:
+  - StatisticsServiceClientFallbackTest.testUpdateStatisticsWithFailFallback
+  acceptance:
+  - Test asserts consumeFailedFlag true and failedBatchCount increased
+  rollback: Restore previous fallback test class
+  why: P1.T8 and Verification E2 fallback behaviour
+  expected_result: Fallback path proven to mark failed batches
+  invariants:
+  - 'Log message Error during update statistics for account: test retained'
+  edge_cases:
+  - Counter may already be >0 from prior tests in same JVM — compare before/after
+  machine_verify:
+  - grep SettlementObservability account-service/src/test/java/com/piggymetrics/account/client/StatisticsServiceClientFallbackTest.java
+  human_verify:
+  - Test still expects the error log substring
+  exact_commands:
+  - grep -n consumeFailedFlag account-service/src/test/java/com/piggymetrics/account/client/StatisticsServiceClientFallbackTest.java
+- id: STEP-011
+  title: P1.T9 Extend AccountControllerTest for dashboard endpoint
+  depends_on:
+  - STEP-008
+  requirement_refs:
+  - REQ-TEST
+  - REQ-DASH
+  decision_refs:
+  - D-001
+  evidence_refs:
+  - R-005
+  files:
+  - account-service/src/test/java/com/piggymetrics/account/controller/AccountControllerTest.java
+  exact_files:
+  - account-service/src/test/java/com/piggymetrics/account/controller/AccountControllerTest.java
+  existing_implementation: AccountControllerTest MockMvc standalone setup
+  before_snippet: Existing six controller tests without dashboard
+  creates_file: false
+  change: Add shouldReturnSettlementDashboard MockMvc GET /observability/dashboard expecting settlementLatencyP95Ms
+    and failedBatchCount JSON fields from mocked AccountService.
+  do_not:
+  - Remove validation failure tests
+  - Switch away from standaloneSetup
+  companion_required: false
+  exact_snippet: "package com.piggymetrics.account.controller;\n\nimport com.fasterxml.jackson.databind.ObjectMapper;\n\
+    import com.google.common.collect.ImmutableList;\nimport com.piggymetrics.account.domain.*;\nimport\
+    \ com.piggymetrics.account.service.AccountService;\nimport com.sun.security.auth.UserPrincipal;\n\
+    import org.junit.Before;\nimport org.junit.Test;\nimport org.junit.runner.RunWith;\nimport org.mockito.InjectMocks;\n\
+    import org.mockito.Mock;\nimport org.springframework.boot.test.context.SpringBootTest;\nimport org.springframework.http.MediaType;\n\
+    import org.springframework.test.context.junit4.SpringRunner;\nimport org.springframework.test.web.servlet.MockMvc;\n\
+    import org.springframework.test.web.servlet.setup.MockMvcBuilders;\n\nimport java.math.BigDecimal;\n\
+    import java.util.Date;\n\nimport static org.mockito.Mockito.when;\nimport static org.mockito.MockitoAnnotations.initMocks;\n\
+    import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;\nimport static\
+    \ org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;\nimport static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;\n\
+    \n@RunWith(SpringRunner.class)\n@SpringBootTest\npublic class AccountControllerTest {\n\n\tprivate\
+    \ static final ObjectMapper mapper = new ObjectMapper();\n\n\t@InjectMocks\n\tprivate AccountController\
+    \ accountController;\n\n\t@Mock\n\tprivate AccountService accountService;\n\n\tprivate MockMvc mockMvc;\n\
+    \n\t@Before\n\tpublic void setup() {\n\t\tinitMocks(this);\n\t\tthis.mockMvc = MockMvcBuilders.standaloneSetup(accountController).build();\n\
+    \t}\n\n\t@Test\n\tpublic void shouldGetAccountByName() throws Exception {\n\n\t\tfinal Account account\
+    \ = new Account();\n\t\taccount.setName(\"test\");\n\n\t\twhen(accountService.findByName(account.getName())).thenReturn(account);\n\
+    \n\t\tmockMvc.perform(get(\"/\" + account.getName()))\n\t\t\t\t.andExpect(jsonPath(\"$.name\").value(account.getName()))\n\
+    \t\t\t\t.andExpect(status().isOk());\n\t}\n\n\t@Test\n\tpublic void shouldGetCurrentAccount() throws\
+    \ Exception {\n\n\t\tfinal Account account = new Account();\n\t\taccount.setName(\"test\");\n\n\t\t\
+    when(accountService.findByName(account.getName())).thenReturn(account);\n\n\t\tmockMvc.perform(get(\"\
+    /current\").principal(new UserPrincipal(account.getName())))\n\t\t\t\t.andExpect(jsonPath(\"$.name\"\
+    ).value(account.getName()))\n\t\t\t\t.andExpect(status().isOk());\n\t}\n\n\t@Test\n\tpublic void shouldSaveCurrentAccount()\
+    \ throws Exception {\n\n\t\tSaving saving = new Saving();\n\t\tsaving.setAmount(new BigDecimal(1500));\n\
+    \t\tsaving.setCurrency(Currency.USD);\n\t\tsaving.setInterest(new BigDecimal(\"3.32\"));\n\t\tsaving.setDeposit(true);\n\
+    \t\tsaving.setCapitalization(false);\n\n\t\tItem grocery = new Item();\n\t\tgrocery.setTitle(\"Grocery\"\
+    );\n\t\tgrocery.setAmount(new BigDecimal(10));\n\t\tgrocery.setCurrency(Currency.USD);\n\t\tgrocery.setPeriod(TimePeriod.DAY);\n\
+    \t\tgrocery.setIcon(\"meal\");\n\n\t\tItem salary = new Item();\n\t\tsalary.setTitle(\"Salary\");\n\
+    \t\tsalary.setAmount(new BigDecimal(9100));\n\t\tsalary.setCurrency(Currency.USD);\n\t\tsalary.setPeriod(TimePeriod.MONTH);\n\
+    \t\tsalary.setIcon(\"wallet\");\n\n\t\tfinal Account account = new Account();\n\t\taccount.setName(\"\
+    test\");\n\t\taccount.setNote(\"test note\");\n\t\taccount.setLastSeen(new Date());\n\t\taccount.setSaving(saving);\n\
+    \t\taccount.setExpenses(ImmutableList.of(grocery));\n\t\taccount.setIncomes(ImmutableList.of(salary));\n\
+    \n\t\tString json = mapper.writeValueAsString(account);\n\n\t\tmockMvc.perform(put(\"/current\").principal(new\
+    \ UserPrincipal(account.getName())).contentType(MediaType.APPLICATION_JSON).content(json))\n\t\t\t\
+    \t.andExpect(status().isOk());\n\t}\n\n\t@Test\n\tpublic void shouldFailOnValidationTryingToSaveCurrentAccount()\
+    \ throws Exception {\n\n\t\tfinal Account account = new Account();\n\t\taccount.setName(\"test\");\n\
+    \n\t\tString json = mapper.writeValueAsString(account);\n\n\t\tmockMvc.perform(put(\"/current\").principal(new\
+    \ UserPrincipal(account.getName())).contentType(MediaType.APPLICATION_JSON).content(json))\n\t\t\t\
+    \t.andExpect(status().isBadRequest());\n\t}\n\n\t@Test\n\tpublic void shouldRegisterNewAccount() throws\
+    \ Exception {\n\n\t\tfinal User user = new User();\n\t\tuser.setUsername(\"test\");\n\t\tuser.setPassword(\"\
+    password\");\n\n\t\tString json = mapper.writeValueAsString(user);\n\t\tSystem.out.println(json);\n\
+    \t\tmockMvc.perform(post(\"/\").principal(new UserPrincipal(\"test\")).contentType(MediaType.APPLICATION_JSON).content(json))\n\
+    \t\t\t\t.andExpect(status().isOk());\n\t}\n\n\t@Test\n\tpublic void shouldFailOnValidationTryingToRegisterNewAccount()\
+    \ throws Exception {\n\n\t\tfinal User user = new User();\n\t\tuser.setUsername(\"t\");\n\n\t\tString\
+    \ json = mapper.writeValueAsString(user);\n\n\t\tmockMvc.perform(post(\"/\").principal(new UserPrincipal(\"\
+    test\")).contentType(MediaType.APPLICATION_JSON).content(json))\n\t\t\t\t.andExpect(status().isBadRequest());\n\
+    \t}\n\n\t@Test\n\tpublic void shouldReturnSettlementDashboard() throws Exception {\n\n\t\tSettlementDashboard\
+    \ dashboard = new SettlementDashboard();\n\t\tdashboard.setSettlementLatencyP95Ms(12.5d);\n\t\tdashboard.setFailedBatchCount(3L);\n\
+    \n\t\twhen(accountService.getSettlementDashboard()).thenReturn(dashboard);\n\n\t\tmockMvc.perform(get(\"\
+    /observability/dashboard\"))\n\t\t\t\t.andExpect(status().isOk())\n\t\t\t\t.andExpect(jsonPath(\"\
+    $.settlementLatencyP95Ms\").value(12.5d))\n\t\t\t\t.andExpect(jsonPath(\"$.failedBatchCount\").value(3));\n\
+    \t}\n}\n"
+  compatibility: InjectMocks AccountController + Mock AccountService unchanged
+  error_handling: Mock returns canned SettlementDashboard
+  tests:
+  - AccountControllerTest.shouldReturnSettlementDashboard
+  acceptance:
+  - shouldReturnSettlementDashboard asserts status 200 and both JSON fields
+  rollback: Restore previous AccountControllerTest.java
+  why: P1.T9 Extend test AccountControllerTest
+  expected_result: Dashboard endpoint covered at MVC layer
+  invariants:
+  - Existing shouldGetAccountByName/current/save/register tests remain
+  edge_cases:
+  - Literal /observability/dashboard must match before /{name}
+  machine_verify:
+  - grep shouldReturnSettlementDashboard account-service/src/test/java/com/piggymetrics/account/controller/AccountControllerTest.java
+  human_verify:
+  - jsonPath assertions for both metric fields
+  exact_commands:
+  - grep -n shouldReturnSettlementDashboard account-service/src/test/java/com/piggymetrics/account/controller/AccountControllerTest.java
+- id: STEP-012
+  title: P1.T10 Extend AccountRepositoryTest for settlement fields and query
+  depends_on:
+  - STEP-005
+  requirement_refs:
+  - REQ-TEST
+  - REQ-REPO
+  decision_refs:
+  - D-001
+  evidence_refs:
+  - R-005
+  files:
+  - account-service/src/test/java/com/piggymetrics/account/repository/AccountRepositoryTest.java
+  exact_files:
+  - account-service/src/test/java/com/piggymetrics/account/repository/AccountRepositoryTest.java
+  existing_implementation: AccountRepositoryTest.shouldFindAccountByName
+  before_snippet: "package com.piggymetrics.account.repository;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import com.piggymetrics.account.domain.Currency;\nimport com.piggymetrics.account.domain.Item;\nimport\
+    \ com.piggymetrics.account.domain.Saving;\nimport com.piggymetrics.account.domain.TimePeriod;\nimport\
+    \ org.junit.Test;\nimport org.junit.runner.RunWith;\nimport org.springframework.beans.factory.annotation.Autowired;\n\
+    import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;\nimport org.springframework.test.context.junit4.SpringRunner;\n\
+    \nimport java.math.BigDecimal;\nimport java.util.Arrays;\nimport java.util.Date;\n\nimport static\
+    \ org.junit.Assert.assertEquals;\n\n@RunWith(SpringRunner.class)\n@DataMongoTest\npublic class AccountRepositoryTest\
+    \ {\n\n\t@Autowired\n\tprivate AccountRepository repository;\n\n\t@Test\n\tpublic void shouldFindAccountByName()\
+    \ {\n\n\t\tAccount stub = getStubAccount();\n\t\trepository.save(stub);\n\n\t\tAccount found = repository.findByName(stub.getName());\n\
+    \t\tassertEquals(stub.getLastSeen(), found.getLastSeen());\n\t\tassertEquals(stub.getNote(), found.getNote());\n\
+    \t\tassertEquals(stub.getIncomes().size(), found.getIncomes().size());\n\t\tassertEquals(stub.getExpenses().size(),\
+    \ found.getExpenses().size());\n\t}\n\n\tprivate Account getStubAccount() {\n\n\t\tSaving saving =\
+    \ new Saving();\n\t\tsaving.setAmount(new BigDecimal(1500));\n\t\tsaving.setCurrency(Currency.USD);\n\
+    \t\tsaving.setInterest(new BigDecimal(\"3.32\"));\n\t\tsaving.setDeposit(true);\n\t\tsaving.setCapitalization(false);\n\
+    \n\t\tItem vacation = new Item();\n\t\tvacation.setTitle(\"Vacation\");\n\t\tvacation.setAmount(new\
+    \ BigDecimal(3400));\n\t\tvacation.setCurrency(Currency.EUR);\n\t\tvacation.setPeriod(TimePeriod.YEAR);\n\
+    \t\tvacation.setIcon(\"tourism\");\n\n\t\tItem grocery = new Item();\n\t\tgrocery.setTitle(\"Grocery\"\
+    );\n\t\tgrocery.setAmount(new BigDecimal(10));\n\t\tgrocery.setCurrency(Currency.USD);\n\t\tgrocery.setPeriod(TimePeriod.DAY);\n\
+    \t\tgrocery.setIcon(\"meal\");\n\n\t\tItem salary = new Item();\n\t\tsalary.setTitle(\"Salary\");\n\
+    \t\tsalary.setAmount(new BigDecimal(9100));\n\t\tsalary.setCurrency(Currency.USD);\n\t\tsalary.setPeriod(TimePeriod.MONTH);\n\
+    \t\tsalary.setIcon(\"wallet\");\n\n\t\tAccount account = new Account();\n\t\taccount.setName(\"test\"\
+    );\n\t\taccount.setNote(\"test note\");\n\t\taccount.setLastSeen(new Date());\n\t\taccount.setSaving(saving);\n\
+    \t\taccount.setExpenses(Arrays.asList(grocery, vacation));\n\t\taccount.setIncomes(Arrays.asList(salary));\n\
+    \n\t\treturn account;\n\t}\n}\n"
+  creates_file: false
+  change: Persist settlement fields on stub accounts and add shouldFindAccountsWithFailedBatches covering
+    findByFailedBatchCountGreaterThan.
+  do_not:
+  - Remove @DataMongoTest
+  - Change embed mongo setup
+  companion_required: false
+  exact_snippet: "package com.piggymetrics.account.repository;\n\nimport com.piggymetrics.account.domain.Account;\n\
+    import com.piggymetrics.account.domain.Currency;\nimport com.piggymetrics.account.domain.Item;\nimport\
+    \ com.piggymetrics.account.domain.Saving;\nimport com.piggymetrics.account.domain.TimePeriod;\nimport\
+    \ org.junit.Test;\nimport org.junit.runner.RunWith;\nimport org.springframework.beans.factory.annotation.Autowired;\n\
+    import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;\nimport org.springframework.test.context.junit4.SpringRunner;\n\
+    \nimport java.math.BigDecimal;\nimport java.util.Arrays;\nimport java.util.Date;\nimport java.util.List;\n\
+    \nimport static org.junit.Assert.assertEquals;\nimport static org.junit.Assert.assertTrue;\n\n@RunWith(SpringRunner.class)\n\
+    @DataMongoTest\npublic class AccountRepositoryTest {\n\n\t@Autowired\n\tprivate AccountRepository\
+    \ repository;\n\n\t@Test\n\tpublic void shouldFindAccountByName() {\n\n\t\tAccount stub = getStubAccount();\n\
+    \t\trepository.save(stub);\n\n\t\tAccount found = repository.findByName(stub.getName());\n\t\tassertEquals(stub.getLastSeen(),\
+    \ found.getLastSeen());\n\t\tassertEquals(stub.getNote(), found.getNote());\n\t\tassertEquals(stub.getIncomes().size(),\
+    \ found.getIncomes().size());\n\t\tassertEquals(stub.getExpenses().size(), found.getExpenses().size());\n\
+    \t\tassertEquals(stub.getFailedBatchCount(), found.getFailedBatchCount());\n\t\tassertEquals(stub.getLastSettlementLatencyMs(),\
+    \ found.getLastSettlementLatencyMs());\n\t}\n\n\t@Test\n\tpublic void shouldFindAccountsWithFailedBatches()\
+    \ {\n\n\t\tAccount stub = getStubAccount();\n\t\tstub.setFailedBatchCount(2L);\n\t\trepository.save(stub);\n\
+    \n\t\tList<Account> found = repository.findByFailedBatchCountGreaterThan(0L);\n\t\tassertTrue(found.size()\
+    \ >= 1);\n\t\tassertEquals(\"test\", found.get(0).getName());\n\t}\n\n\tprivate Account getStubAccount()\
+    \ {\n\n\t\tSaving saving = new Saving();\n\t\tsaving.setAmount(new BigDecimal(1500));\n\t\tsaving.setCurrency(Currency.USD);\n\
+    \t\tsaving.setInterest(new BigDecimal(\"3.32\"));\n\t\tsaving.setDeposit(true);\n\t\tsaving.setCapitalization(false);\n\
+    \n\t\tItem vacation = new Item();\n\t\tvacation.setTitle(\"Vacation\");\n\t\tvacation.setAmount(new\
+    \ BigDecimal(3400));\n\t\tvacation.setCurrency(Currency.EUR);\n\t\tvacation.setPeriod(TimePeriod.YEAR);\n\
+    \t\tvacation.setIcon(\"tourism\");\n\n\t\tItem grocery = new Item();\n\t\tgrocery.setTitle(\"Grocery\"\
+    );\n\t\tgrocery.setAmount(new BigDecimal(10));\n\t\tgrocery.setCurrency(Currency.USD);\n\t\tgrocery.setPeriod(TimePeriod.DAY);\n\
+    \t\tgrocery.setIcon(\"meal\");\n\n\t\tItem salary = new Item();\n\t\tsalary.setTitle(\"Salary\");\n\
+    \t\tsalary.setAmount(new BigDecimal(9100));\n\t\tsalary.setCurrency(Currency.USD);\n\t\tsalary.setPeriod(TimePeriod.MONTH);\n\
+    \t\tsalary.setIcon(\"wallet\");\n\n\t\tAccount account = new Account();\n\t\taccount.setName(\"test\"\
+    );\n\t\taccount.setNote(\"test note\");\n\t\taccount.setLastSeen(new Date());\n\t\taccount.setSaving(saving);\n\
+    \t\taccount.setExpenses(Arrays.asList(grocery, vacation));\n\t\taccount.setIncomes(Arrays.asList(salary));\n\
+    \t\taccount.setFailedBatchCount(0L);\n\t\taccount.setLastSettlementLatencyMs(0L);\n\n\t\treturn account;\n\
+    \t}\n}\n"
+  compatibility: flapdoodle embed mongo already on test classpath
+  error_handling: Assert list size >= 1 for failed batch query
+  tests:
+  - AccountRepositoryTest.shouldFindAccountsWithFailedBatches
+  acceptance:
+  - New repository test saves failedBatchCount=2 and queries threshold 0
+  rollback: Restore previous AccountRepositoryTest.java
+  why: P1.T10 Extend test AccountRepositoryTest
+  expected_result: Mongo mapping for new fields and query proven
+  invariants:
+  - '@DataMongoTest retained'
+  edge_cases:
+  - failedBatchCount 0 must not appear in greaterThan(0) results
+  machine_verify:
+  - grep shouldFindAccountsWithFailedBatches account-service/src/test/java/com/piggymetrics/account/repository/AccountRepositoryTest.java
+  human_verify:
+  - Stub sets lastSettlementLatencyMs and failedBatchCount
+  exact_commands:
+  - grep -n shouldFindAccountsWithFailedBatches account-service/src/test/java/com/piggymetrics/account/repository/AccountRepositoryTest.java
+- id: STEP-013
+  title: P1.T11 Extend AccountServiceTest for latency retry auth propagate dashboard
+  depends_on:
+  - STEP-007
+  requirement_refs:
+  - REQ-TEST
+  - REQ-RETRY
+  - REQ-AUTH
+  decision_refs:
+  - D-001
+  - D-004
+  evidence_refs:
+  - R-005
+  files:
+  - account-service/src/test/java/com/piggymetrics/account/service/AccountServiceTest.java
+  exact_files:
+  - account-service/src/test/java/com/piggymetrics/account/service/AccountServiceTest.java
+  existing_implementation: AccountServiceTest mock-based unit tests
+  before_snippet: "package com.piggymetrics.account.service;\n\nimport com.piggymetrics.account.client.AuthServiceClient;\n\
+    import com.piggymetrics.account.client.StatisticsServiceClient;\nimport com.piggymetrics.account.domain.*;\n\
+    import com.piggymetrics.account.repository.AccountRepository;\nimport org.junit.Before;\nimport org.junit.Test;\n\
+    import org.mockito.InjectMocks;\nimport org.mockito.Mock;\n\nimport java.math.BigDecimal;\nimport\
+    \ java.util.Arrays;\n\nimport static org.junit.Assert.assertEquals;\nimport static org.junit.Assert.assertNotNull;\n\
+    import static org.mockito.Mockito.*;\nimport static org.mockito.MockitoAnnotations.initMocks;\n\n\
+    public class AccountServiceTest {\n\n\t@InjectMocks\n\tprivate AccountServiceImpl accountService;\n\
+    \n\t@Mock\n\tprivate StatisticsServiceClient statisticsClient;\n\n\t@Mock\n\tprivate AuthServiceClient\
+    \ authClient;\n\n\t@Mock\n\tprivate AccountRepository repository;\n\n\t@Before\n\tpublic void setup()\
+    \ {\n\t\tinitMocks(this);\n\t}\n\n\t@Test\n\tpublic void shouldFindByName() {\n\n\t\tfinal Account\
+    \ account = new Account();\n\t\taccount.setName(\"test\");\n\n\t\twhen(accountService.findByName(account.getName())).thenReturn(account);\n\
+    \t\tAccount found = accountService.findByName(account.getName());\n\n\t\tassertEquals(account, found);\n\
+    \t}\n\n\t@Test(expected = IllegalArgumentException.class)\n\tpublic void shouldFailWhenNameIsEmpty()\
+    \ {\n\t\taccountService.findByName(\"\");\n\t}\n\n\t@Test\n\tpublic void shouldCreateAccountWithGivenUser()\
+    \ {\n\n\t\tUser user = new User();\n\t\tuser.setUsername(\"test\");\n\n\t\tAccount account = accountService.create(user);\n\
+    \n\t\tassertEquals(user.getUsername(), account.getName());\n\t\tassertEquals(0, account.getSaving().getAmount().intValue());\n\
+    \t\tassertEquals(Currency.getDefault(), account.getSaving().getCurrency());\n\t\tassertEquals(0, account.getSaving().getInterest().intValue());\n\
+    \t\tassertEquals(false, account.getSaving().getDeposit());\n\t\tassertEquals(false, account.getSaving().getCapitalization());\n\
+    \t\tassertNotNull(account.getLastSeen());\n\n\t\tverify(authClient, times(1)).createUser(user);\n\t\
+    \tverify(repository, times(1)).save(account);\n\t}\n\n\t@Test\n\tpublic void shouldSaveChangesWhenUpdatedAccountGiven()\
+    \ {\n\n\t\tItem grocery = new Item();\n\t\tgrocery.setTitle(\"Grocery\");\n\t\tgrocery.setAmount(new\
+    \ BigDecimal(10));\n\t\tgrocery.setCurrency(Currency.USD);\n\t\tgrocery.setPeriod(TimePeriod.DAY);\n\
+    \t\tgrocery.setIcon(\"meal\");\n\n\t\tItem salary = new Item();\n\t\tsalary.setTitle(\"Salary\");\n\
+    \t\tsalary.setAmount(new BigDecimal(9100));\n\t\tsalary.setCurrency(Currency.USD);\n\t\tsalary.setPeriod(TimePeriod.MONTH);\n\
+    \t\tsalary.setIcon(\"wallet\");\n\n\t\tSaving saving = new Saving();\n\t\tsaving.setAmount(new BigDecimal(1500));\n\
+    \t\tsaving.setCurrency(Currency.USD);\n\t\tsaving.setInterest(new BigDecimal(\"3.32\"));\n\t\tsaving.setDeposit(true);\n\
+    \t\tsaving.setCapitalization(false);\n\n\t\tfinal Account update = new Account();\n\t\tupdate.setName(\"\
+    test\");\n\t\tupdate.setNote(\"test note\");\n\t\tupdate.setIncomes(Arrays.asList(salary));\n\t\t\
+    update.setExpenses(Arrays.asList(grocery));\n\t\tupdate.setSaving(saving);\n\n\t\tfinal Account account\
+    \ = new Account();\n\n\t\twhen(accountService.findByName(\"test\")).thenReturn(account);\n\t\taccountService.saveChanges(\"\
+    test\", update);\n\n\t\tassertEquals(update.getNote(), account.getNote());\n\t\tassertNotNull(account.getLastSeen());\n\
+    \n\t\tassertEquals(update.getSaving().getAmount(), account.getSaving().getAmount());\n\t\tassertEquals(update.getSaving().getCurrency(),\
+    \ account.getSaving().getCurrency());\n\t\tassertEquals(update.getSaving().getInterest(), account.getSaving().getInterest());\n\
+    \t\tassertEquals(update.getSaving().getDeposit(), account.getSaving().getDeposit());\n\t\tassertEquals(update.getSaving().getCapitalization(),\
+    \ account.getSaving().getCapitalization());\n\n\t\tassertEquals(update.getExpenses().size(), account.getExpenses().size());\n\
+    \t\tassertEquals(update.getIncomes().size(), account.getIncomes().size());\n\n\t\tassertEquals(update.getExpenses().get(0).getTitle(),\
+    \ account.getExpenses().get(0).getTitle());\n\t\tassertEquals(0, update.getExpenses().get(0).getAmount().compareTo(account.getExpenses().get(0).getAmount()));\n\
+    \t\tassertEquals(update.getExpenses().get(0).getCurrency(), account.getExpenses().get(0).getCurrency());\n\
+    \t\tassertEquals(update.getExpenses().get(0).getPeriod(), account.getExpenses().get(0).getPeriod());\n\
+    \t\tassertEquals(update.getExpenses().get(0).getIcon(), account.getExpenses().get(0).getIcon());\n\
+    \t\t\n\t\tassertEquals(update.getIncomes().get(0).getTitle(), account.getIncomes().get(0).getTitle());\n\
+    \t\tassertEquals(0, update.getIncomes().get(0).getAmount().compareTo(account.getIncomes().get(0).getAmount()));\n\
+    \t\tassertEquals(update.getIncomes().get(0).getCurrency(), account.getIncomes().get(0).getCurrency());\n\
+    \t\tassertEquals(update.getIncomes().get(0).getPeriod(), account.getIncomes().get(0).getPeriod());\n\
+    \t\tassertEquals(update.getIncomes().get(0).getIcon(), account.getIncomes().get(0).getIcon());\n\t\
+    \t\n\t\tverify(repository, times(1)).save(account);\n\t\tverify(statisticsClient, times(1)).updateStatistics(\"\
+    test\", account);\n\t}\n\n\t@Test(expected = IllegalArgumentException.class)\n\tpublic void shouldFailWhenNoAccountsExistedWithGivenName()\
+    \ {\n\t\tfinal Account update = new Account();\n\t\tupdate.setIncomes(Arrays.asList(new Item()));\n\
+    \t\tupdate.setExpenses(Arrays.asList(new Item()));\n\n\t\twhen(accountService.findByName(\"test\"\
+    )).thenReturn(null);\n\t\taccountService.saveChanges(\"test\", update);\n\t}\n}\n"
+  creates_file: false
+  change: Extend AccountServiceTest with mocks for SettlementObservability and SettlementProperties; fix
+    findByName stubbing to use repository; add shouldPropagateAuthServiceFailureOnCreate, shouldRetryStatisticsUpdateAndCountFailedBatch,
+    shouldExposeSettlementDashboard; assert recordLatencyNanos on successful saveChanges.
+  do_not:
+  - Swallow auth exceptions in production create()
+  - Use when(accountService.findByName) self-stubbing
+  companion_required: false
+  exact_snippet: "package com.piggymetrics.account.service;\n\nimport com.piggymetrics.account.client.AuthServiceClient;\n\
+    import com.piggymetrics.account.client.StatisticsServiceClient;\nimport com.piggymetrics.account.config.SettlementProperties;\n\
+    import com.piggymetrics.account.domain.*;\nimport com.piggymetrics.account.repository.AccountRepository;\n\
+    import org.junit.Before;\nimport org.junit.Test;\nimport org.mockito.InjectMocks;\nimport org.mockito.Mock;\n\
+    \nimport java.math.BigDecimal;\nimport java.util.Arrays;\n\nimport static org.junit.Assert.assertEquals;\n\
+    import static org.junit.Assert.assertNotNull;\nimport static org.junit.Assert.assertTrue;\nimport\
+    \ static org.mockito.Mockito.*;\nimport static org.mockito.MockitoAnnotations.initMocks;\n\npublic\
+    \ class AccountServiceTest {\n\n\t@InjectMocks\n\tprivate AccountServiceImpl accountService;\n\n\t\
+    @Mock\n\tprivate StatisticsServiceClient statisticsClient;\n\n\t@Mock\n\tprivate AuthServiceClient\
+    \ authClient;\n\n\t@Mock\n\tprivate AccountRepository repository;\n\n\t@Mock\n\tprivate SettlementObservability\
+    \ settlementObservability;\n\n\t@Mock\n\tprivate SettlementProperties settlementProperties;\n\n\t\
+    @Before\n\tpublic void setup() {\n\t\tinitMocks(this);\n\t\tSettlementProperties.Retry retry = new\
+    \ SettlementProperties.Retry();\n\t\tretry.setMaxAttempts(3);\n\t\tretry.setBackoffMs(0L);\n\t\twhen(settlementProperties.getRetry()).thenReturn(retry);\n\
+    \t\twhen(settlementObservability.consumeFailedFlag()).thenReturn(false);\n\t\tSettlementDashboard\
+    \ dashboard = new SettlementDashboard();\n\t\tdashboard.setSettlementLatencyP95Ms(0.0d);\n\t\tdashboard.setFailedBatchCount(0L);\n\
+    \t\twhen(settlementObservability.snapshot()).thenReturn(dashboard);\n\t}\n\n\t@Test\n\tpublic void\
+    \ shouldFindByName() {\n\n\t\tfinal Account account = new Account();\n\t\taccount.setName(\"test\"\
+    );\n\n\t\twhen(repository.findByName(account.getName())).thenReturn(account);\n\t\tAccount found =\
+    \ accountService.findByName(account.getName());\n\n\t\tassertEquals(account, found);\n\t}\n\n\t@Test(expected\
+    \ = IllegalArgumentException.class)\n\tpublic void shouldFailWhenNameIsEmpty() {\n\t\taccountService.findByName(\"\
+    \");\n\t}\n\n\t@Test\n\tpublic void shouldCreateAccountWithGivenUser() {\n\n\t\tUser user = new User();\n\
+    \t\tuser.setUsername(\"test\");\n\n\t\tAccount account = accountService.create(user);\n\n\t\tassertEquals(user.getUsername(),\
+    \ account.getName());\n\t\tassertEquals(0, account.getSaving().getAmount().intValue());\n\t\tassertEquals(Currency.getDefault(),\
+    \ account.getSaving().getCurrency());\n\t\tassertEquals(0, account.getSaving().getInterest().intValue());\n\
+    \t\tassertEquals(false, account.getSaving().getDeposit());\n\t\tassertEquals(false, account.getSaving().getCapitalization());\n\
+    \t\tassertNotNull(account.getLastSeen());\n\t\tassertEquals(0L, account.getFailedBatchCount());\n\n\
+    \t\tverify(authClient, times(1)).createUser(user);\n\t\tverify(repository, times(1)).save(account);\n\
+    \t}\n\n\t@Test(expected = RuntimeException.class)\n\tpublic void shouldPropagateAuthServiceFailureOnCreate()\
+    \ {\n\t\tUser user = new User();\n\t\tuser.setUsername(\"test\");\n\t\tdoThrow(new RuntimeException(\"\
+    auth down\")).when(authClient).createUser(user);\n\t\taccountService.create(user);\n\t}\n\n\t@Test\n\
+    \tpublic void shouldSaveChangesWhenUpdatedAccountGiven() {\n\n\t\tItem grocery = new Item();\n\t\t\
+    grocery.setTitle(\"Grocery\");\n\t\tgrocery.setAmount(new BigDecimal(10));\n\t\tgrocery.setCurrency(Currency.USD);\n\
+    \t\tgrocery.setPeriod(TimePeriod.DAY);\n\t\tgrocery.setIcon(\"meal\");\n\n\t\tItem salary = new Item();\n\
+    \t\tsalary.setTitle(\"Salary\");\n\t\tsalary.setAmount(new BigDecimal(9100));\n\t\tsalary.setCurrency(Currency.USD);\n\
+    \t\tsalary.setPeriod(TimePeriod.MONTH);\n\t\tsalary.setIcon(\"wallet\");\n\n\t\tSaving saving = new\
+    \ Saving();\n\t\tsaving.setAmount(new BigDecimal(1500));\n\t\tsaving.setCurrency(Currency.USD);\n\t\
+    \tsaving.setInterest(new BigDecimal(\"3.32\"));\n\t\tsaving.setDeposit(true);\n\t\tsaving.setCapitalization(false);\n\
+    \n\t\tfinal Account update = new Account();\n\t\tupdate.setName(\"test\");\n\t\tupdate.setNote(\"\
+    test note\");\n\t\tupdate.setIncomes(Arrays.asList(salary));\n\t\tupdate.setExpenses(Arrays.asList(grocery));\n\
+    \t\tupdate.setSaving(saving);\n\n\t\tfinal Account account = new Account();\n\n\t\twhen(repository.findByName(\"\
+    test\")).thenReturn(account);\n\t\taccountService.saveChanges(\"test\", update);\n\n\t\tassertEquals(update.getNote(),\
+    \ account.getNote());\n\t\tassertNotNull(account.getLastSeen());\n\t\tassertNotNull(account.getLastSettlementLatencyMs());\n\
+    \n\t\tassertEquals(update.getSaving().getAmount(), account.getSaving().getAmount());\n\t\tassertEquals(update.getSaving().getCurrency(),\
+    \ account.getSaving().getCurrency());\n\t\tassertEquals(update.getSaving().getInterest(), account.getSaving().getInterest());\n\
+    \t\tassertEquals(update.getSaving().getDeposit(), account.getSaving().getDeposit());\n\t\tassertEquals(update.getSaving().getCapitalization(),\
+    \ account.getSaving().getCapitalization());\n\n\t\tassertEquals(update.getExpenses().size(), account.getExpenses().size());\n\
+    \t\tassertEquals(update.getIncomes().size(), account.getIncomes().size());\n\n\t\tassertEquals(update.getExpenses().get(0).getTitle(),\
+    \ account.getExpenses().get(0).getTitle());\n\t\tassertEquals(0, update.getExpenses().get(0).getAmount().compareTo(account.getExpenses().get(0).getAmount()));\n\
+    \t\tassertEquals(update.getExpenses().get(0).getCurrency(), account.getExpenses().get(0).getCurrency());\n\
+    \t\tassertEquals(update.getExpenses().get(0).getPeriod(), account.getExpenses().get(0).getPeriod());\n\
+    \t\tassertEquals(update.getExpenses().get(0).getIcon(), account.getExpenses().get(0).getIcon());\n\
+    \n\t\tassertEquals(update.getIncomes().get(0).getTitle(), account.getIncomes().get(0).getTitle());\n\
+    \t\tassertEquals(0, update.getIncomes().get(0).getAmount().compareTo(account.getIncomes().get(0).getAmount()));\n\
+    \t\tassertEquals(update.getIncomes().get(0).getCurrency(), account.getIncomes().get(0).getCurrency());\n\
+    \t\tassertEquals(update.getIncomes().get(0).getPeriod(), account.getIncomes().get(0).getPeriod());\n\
+    \t\tassertEquals(update.getIncomes().get(0).getIcon(), account.getIncomes().get(0).getIcon());\n\n\
+    \t\tverify(repository, times(1)).save(account);\n\t\tverify(statisticsClient, times(1)).updateStatistics(\"\
+    test\", account);\n\t\tverify(settlementObservability, times(1)).recordLatencyNanos(anyLong());\n\t\
+    }\n\n\t@Test\n\tpublic void shouldRetryStatisticsUpdateAndCountFailedBatch() {\n\t\tfinal Account\
+    \ update = new Account();\n\t\tupdate.setNote(\"n\");\n\t\tupdate.setIncomes(Arrays.asList());\n\t\
+    \tupdate.setExpenses(Arrays.asList());\n\t\tSaving saving = new Saving();\n\t\tsaving.setAmount(BigDecimal.ZERO);\n\
+    \t\tsaving.setCurrency(Currency.USD);\n\t\tsaving.setInterest(BigDecimal.ZERO);\n\t\tsaving.setDeposit(false);\n\
+    \t\tsaving.setCapitalization(false);\n\t\tupdate.setSaving(saving);\n\n\t\tfinal Account account =\
+    \ new Account();\n\t\taccount.setFailedBatchCount(0L);\n\t\twhen(repository.findByName(\"test\")).thenReturn(account);\n\
+    \t\twhen(settlementObservability.consumeFailedFlag()).thenReturn(true, true, true);\n\n\t\taccountService.saveChanges(\"\
+    test\", update);\n\n\t\tverify(statisticsClient, times(3)).updateStatistics(eq(\"test\"), any(Account.class));\n\
+    \t\tassertEquals(1L, account.getFailedBatchCount());\n\t\tverify(settlementObservability, times(1)).recordLatencyNanos(anyLong());\n\
+    \t}\n\n\t@Test\n\tpublic void shouldExposeSettlementDashboard() {\n\t\tSettlementDashboard dashboard\
+    \ = accountService.getSettlementDashboard();\n\t\tassertNotNull(dashboard);\n\t\tassertTrue(dashboard.getFailedBatchCount()\
+    \ >= 0L);\n\t}\n\n\t@Test(expected = IllegalArgumentException.class)\n\tpublic void shouldFailWhenNoAccountsExistedWithGivenName()\
+    \ {\n\t\tfinal Account update = new Account();\n\t\tupdate.setIncomes(Arrays.asList(new Item()));\n\
+    \t\tupdate.setExpenses(Arrays.asList(new Item()));\n\n\t\twhen(repository.findByName(\"test\")).thenReturn(null);\n\
+    \t\taccountService.saveChanges(\"test\", update);\n\t}\n}\n"
+  compatibility: Mockito initMocks pattern retained
+  error_handling: Auth failure test expects RuntimeException; retry test forces three failed flags
+  tests:
+  - AccountServiceTest.shouldPropagateAuthServiceFailureOnCreate
+  - AccountServiceTest.shouldRetryStatisticsUpdateAndCountFailedBatch
+  - AccountServiceTest.shouldExposeSettlementDashboard
+  acceptance:
+  - Auth failure propagates
+  - Three failed flags yield three updateStatistics calls and failedBatchCount 1
+  - getSettlementDashboard delegated to observability.snapshot
+  rollback: Restore previous AccountServiceTest.java
+  why: P1.T11 and Goal item 4 tests for metric/retry/dashboard behaviour
+  expected_result: Service-level behaviour for P1 holds in module tests
+  invariants:
+  - statisticsClient.updateStatistics still verified on happy path
+  edge_cases:
+  - backoffMs 0 in test properties avoids Thread.sleep flakiness
+  machine_verify:
+  - grep shouldRetryStatisticsUpdateAndCountFailedBatch account-service/src/test/java/com/piggymetrics/account/service/AccountServiceTest.java
+  human_verify:
+  - shouldPropagateAuthServiceFailureOnCreate uses doThrow on authClient
+  exact_commands:
+  - grep -n shouldPropagateAuthServiceFailureOnCreate account-service/src/test/java/com/piggymetrics/account/service/AccountServiceTest.java
+- id: STEP-014
+  title: P1 gate Run full Maven test suite
+  depends_on:
+  - STEP-009
+  - STEP-010
+  - STEP-011
+  - STEP-012
+  - STEP-013
+  requirement_refs:
+  - REQ-GATE
+  decision_refs:
+  - D-005
+  evidence_refs:
+  - R-006
+  files:
+  - repository-root
+  exact_files:
+  - repository-root
+  existing_implementation: Root Maven aggregator; Travis language java jdk oraclejdk8
+  before_snippet: Root packaging pom; java.version 1.8
+  creates_file: false
+  change: After all P1.T1-T11 source and test pins are applied, run the repository's own test suite with
+    mvn test at the repo root (not test-compile, not -DskipTests) and confirm exit code 0.
+  do_not:
+  - Use mvn test-compile as the acceptance gate
+  - Pass -DskipTests
+  - Raise JVM major without moving every Dockerfile FROM
+  companion_required: false
+  exact_commands:
+  - mvn test
+  compatibility: oraclejdk8 / Java 1.8 as Travis
+  error_handling: Any module failure blocks PR
+  tests:
+  - repository full suite
+  acceptance:
+  - mvn test exits 0
+  rollback: Fix failing tests; do not weaken gate
+  why: GATE FLOOR and Spec Verification require the repository test suite to pass
+  expected_result: P1 behaviour holds and the full suite is green before PR
+  invariants:
+  - java.version 1.8; Dockerfiles remain java:8-jre
+  edge_cases:
+  - 'Flaky embed mongo: re-run once; do not skip'
+  machine_verify:
+  - mvn test
+  human_verify:
+  - CI/log shows BUILD SUCCESS

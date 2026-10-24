@@ -1,0 +1,3 @@
+notes:
+- Spring Boot 2.0 actuator brings Micrometer; explicit micrometer-core coordinate pinned for compile certainty
+- Feign+Hystrix fallback does not throw — failed-batch detection must mark inside fallback

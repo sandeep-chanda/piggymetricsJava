@@ -1,0 +1,16 @@
+questions:
+- id: Q-001
+  question: Where does settlement occur?
+  status: resolved
+  finding_refs:
+  - R-001
+- id: Q-002
+  question: How are Feign failures handled today?
+  status: resolved
+  finding_refs:
+  - R-004
+- id: Q-003
+  question: What test command does the repo use?
+  status: resolved
+  finding_refs:
+  - R-006

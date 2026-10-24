@@ -1,0 +1,332 @@
+task_id: walk-e2e-20261024-scenario-P1
+nodes:
+- id: STEP-001
+  playbook_ref: STEP-001
+  title: P1.T6 Add account.settlement config keys and SettlementProperties
+  depends_on: []
+  critical_path: true
+  exact_files:
+  - config/src/main/resources/shared/account-service.yml
+  - account-service/src/main/java/com/piggymetrics/account/config/SettlementProperties.java
+  summary_spec: Retry limits are externalized for account-service settlement batches
+  verification:
+    machine:
+    - test -f account-service/src/main/java/com/piggymetrics/account/config/SettlementProperties.java
+    human:
+    - Shared yml shows account.settlement.retry keys under account-service.yml
+  acceptance:
+  - 'account-service.yml contains account.settlement.retry.max-attempts: 3 and backoff-ms: 100'
+  - SettlementProperties.java exists with prefix account.settlement
+  no_imagination: true
+  todo_refs:
+  - P1.T6
+- id: STEP-002
+  playbook_ref: STEP-002
+  title: P1 goal-1 Add micrometer-core coordinate to account-service pom
+  depends_on:
+  - STEP-001
+  critical_path: true
+  exact_files:
+  - account-service/pom.xml
+  summary_spec: mvn test can compile Micrometer Timer/Counter usage
+  verification:
+    machine:
+    - grep micrometer-core account-service/pom.xml
+    human:
+    - pom shows micrometer-core under dependencies
+  acceptance:
+  - account-service/pom.xml contains artifactId micrometer-core
+  - Parent remains spring-boot-starter-parent 2.0.3.RELEASE
+  no_imagination: true
+  todo_refs: []
+- id: STEP-003
+  playbook_ref: STEP-003
+  title: P1 goal-1 Create SettlementObservability and SettlementDashboard
+  depends_on:
+  - STEP-002
+  critical_path: true
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/service/SettlementObservability.java
+  - account-service/src/main/java/com/piggymetrics/account/domain/SettlementDashboard.java
+  summary_spec: Coding agent can record latency and read a dashboard snapshot without inventing APIs
+  verification:
+    machine:
+    - test -f account-service/src/main/java/com/piggymetrics/account/service/SettlementObservability.java
+    human:
+    - snapshot maps p95 timer + counter into SettlementDashboard
+  acceptance:
+  - SettlementObservability.snapshot returns settlementLatencyP95Ms and failedBatchCount
+  - Timer name is account.settlement.latency with 0.95 percentile
+  no_imagination: true
+  todo_refs: []
+- id: STEP-004
+  playbook_ref: STEP-004
+  title: P1.T2 Extend Account document with settlement fields
+  depends_on:
+  - STEP-003
+  critical_path: true
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/domain/Account.java
+  summary_spec: Persisted settlement latency and failed-batch count ride with Account JSON
+  verification:
+    machine:
+    - grep lastSettlementLatencyMs account-service/src/main/java/com/piggymetrics/account/domain/Account.java
+    human:
+    - Account.java declares both new fields with getters/setters
+  acceptance:
+  - Account has getLastSettlementLatencyMs/setLastSettlementLatencyMs
+  - Account has getFailedBatchCount/setFailedBatchCount
+  no_imagination: true
+  todo_refs:
+  - P1.T2
+- id: STEP-005
+  playbook_ref: STEP-005
+  title: P1.T3 Add repository query for failed batches
+  depends_on:
+  - STEP-004
+  critical_path: true
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/repository/AccountRepository.java
+  summary_spec: Tests can query accounts with failedBatchCount > 0
+  verification:
+    machine:
+    - grep findByFailedBatchCountGreaterThan account-service/src/main/java/com/piggymetrics/account/repository/AccountRepository.java
+    human:
+    - New query method present beside findByName
+  acceptance:
+  - AccountRepository declares findByFailedBatchCountGreaterThan(long threshold)
+  no_imagination: true
+  todo_refs:
+  - P1.T3
+- id: STEP-006
+  playbook_ref: STEP-006
+  title: P1.T4 Keep AuthServiceClient POST /uaa/users propagating failures
+  depends_on:
+  - STEP-005
+  critical_path: true
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/client/AuthServiceClient.java
+  summary_spec: POST /accounts still fails when auth-service createUser fails
+  verification:
+    machine:
+    - grep -n 'fallback' account-service/src/main/java/com/piggymetrics/account/client/AuthServiceClient.java
+      || true
+    human:
+    - AuthServiceClient source shows no fallback= attribute
+  acceptance:
+  - AuthServiceClient has no fallback attribute
+  - createUser mapping remains POST /uaa/users
+  no_imagination: true
+  todo_refs:
+  - P1.T4
+- id: STEP-007
+  playbook_ref: STEP-007
+  title: P1.T5 Wire statistics fallback failed-batch mark and settlement retry latency
+  depends_on:
+  - STEP-006
+  - STEP-003
+  critical_path: true
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClient.java
+  - account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClientFallback.java
+  - account-service/src/main/java/com/piggymetrics/account/service/AccountService.java
+  - account-service/src/main/java/com/piggymetrics/account/service/AccountServiceImpl.java
+  summary_spec: Settlement latency recorded; failed batches counted; stats failures use fallback+retry
+  verification:
+    machine:
+    - grep markAttemptFailed account-service/src/main/java/com/piggymetrics/account/client/StatisticsServiceClientFallback.java
+    human:
+    - saveChanges loop uses settlementProperties.getRetry().getMaxAttempts()
+  acceptance:
+  - StatisticsServiceClientFallback calls settlementObservability.markAttemptFailed()
+  - saveChanges retries updateStatistics up to maxAttempts from SettlementProperties
+  - saveChanges calls settlementObservability.recordLatencyNanos
+  - Auth create path still has no try/catch around authClient.createUser
+  no_imagination: true
+  todo_refs:
+  - P1.T5
+- id: STEP-008
+  playbook_ref: STEP-008
+  title: P1.T1 Add GET /observability/dashboard on AccountController
+  depends_on:
+  - STEP-007
+  critical_path: true
+  exact_files:
+  - account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+  summary_spec: Clients can GET /accounts/observability/dashboard for both metrics
+  verification:
+    machine:
+    - grep observability/dashboard account-service/src/main/java/com/piggymetrics/account/controller/AccountController.java
+    human:
+    - Controller returns SettlementDashboard JSON fields
+  acceptance:
+  - AccountController maps GET /observability/dashboard to getSettlementDashboard
+  - Existing four account endpoints remain
+  no_imagination: true
+  todo_refs:
+  - P1.T1
+- id: STEP-009
+  playbook_ref: STEP-009
+  title: P1.T7 Extend AccountServiceApplicationTests for dashboard wiring
+  depends_on:
+  - STEP-008
+  critical_path: true
+  exact_files:
+  - account-service/src/test/java/com/piggymetrics/account/AccountServiceApplicationTests.java
+  summary_spec: Context load proves observability beans and dashboard API on AccountService
+  verification:
+    machine:
+    - grep settlementDashboardBeanWired account-service/src/test/java/com/piggymetrics/account/AccountServiceApplicationTests.java
+    human:
+    - Test autowires AccountService and calls getSettlementDashboard
+  acceptance:
+  - New test method settlementDashboardBeanWired exists and asserts dashboard fields
+  no_imagination: true
+  todo_refs:
+  - P1.T7
+- id: STEP-010
+  playbook_ref: STEP-010
+  title: P1.T8 Extend StatisticsServiceClientFallbackTest for failed-batch mark
+  depends_on:
+  - STEP-007
+  critical_path: true
+  exact_files:
+  - account-service/src/test/java/com/piggymetrics/account/client/StatisticsServiceClientFallbackTest.java
+  summary_spec: Fallback path proven to mark failed batches
+  verification:
+    machine:
+    - grep SettlementObservability account-service/src/test/java/com/piggymetrics/account/client/StatisticsServiceClientFallbackTest.java
+    human:
+    - Test still expects the error log substring
+  acceptance:
+  - Test asserts consumeFailedFlag true and failedBatchCount increased
+  no_imagination: true
+  todo_refs:
+  - P1.T8
+- id: STEP-011
+  playbook_ref: STEP-011
+  title: P1.T9 Extend AccountControllerTest for dashboard endpoint
+  depends_on:
+  - STEP-008
+  critical_path: true
+  exact_files:
+  - account-service/src/test/java/com/piggymetrics/account/controller/AccountControllerTest.java
+  summary_spec: Add shouldReturnSettlementDashboard MockMvc GET /observability/dashboard expecting settlementLatencyP95Ms
+    and failedBatchCount JSON fields from mocked AccountService.
+  verification:
+    machine:
+    - grep shouldReturnSettlementDashboard account-service/src/test/java/com/piggymetrics/account/controller/AccountControllerTest.java
+    human:
+    - jsonPath assertions for both metric fields
+  acceptance:
+  - shouldReturnSettlementDashboard asserts status 200 and both JSON fields
+  no_imagination: true
+  todo_refs:
+  - P1.T9
+- id: STEP-012
+  playbook_ref: STEP-012
+  title: P1.T10 Extend AccountRepositoryTest for settlement fields and query
+  depends_on:
+  - STEP-005
+  critical_path: true
+  exact_files:
+  - account-service/src/test/java/com/piggymetrics/account/repository/AccountRepositoryTest.java
+  summary_spec: Mongo mapping for new fields and query proven
+  verification:
+    machine:
+    - grep shouldFindAccountsWithFailedBatches account-service/src/test/java/com/piggymetrics/account/repository/AccountRepositoryTest.java
+    human:
+    - Stub sets lastSettlementLatencyMs and failedBatchCount
+  acceptance:
+  - New repository test saves failedBatchCount=2 and queries threshold 0
+  no_imagination: true
+  todo_refs:
+  - P1.T1
+  - P1.T10
+- id: STEP-013
+  playbook_ref: STEP-013
+  title: P1.T11 Extend AccountServiceTest for latency retry auth propagate dashboard
+  depends_on:
+  - STEP-007
+  critical_path: true
+  exact_files:
+  - account-service/src/test/java/com/piggymetrics/account/service/AccountServiceTest.java
+  summary_spec: Service-level behaviour for P1 holds in module tests
+  verification:
+    machine:
+    - grep shouldRetryStatisticsUpdateAndCountFailedBatch account-service/src/test/java/com/piggymetrics/account/service/AccountServiceTest.java
+    human:
+    - shouldPropagateAuthServiceFailureOnCreate uses doThrow on authClient
+  acceptance:
+  - Auth failure propagates
+  - Three failed flags yield three updateStatistics calls and failedBatchCount 1
+  - getSettlementDashboard delegated to observability.snapshot
+  no_imagination: true
+  todo_refs:
+  - P1.T1
+  - P1.T11
+- id: STEP-014
+  playbook_ref: STEP-014
+  title: P1 gate Run full Maven test suite
+  depends_on:
+  - STEP-009
+  - STEP-010
+  - STEP-011
+  - STEP-012
+  - STEP-013
+  critical_path: true
+  exact_files:
+  - repository-root
+  summary_spec: P1 behaviour holds and the full suite is green before PR
+  verification:
+    machine:
+    - mvn test
+    human:
+    - CI/log shows BUILD SUCCESS
+  acceptance:
+  - mvn test exits 0
+  no_imagination: true
+  todo_refs: []
+edges:
+- from: STEP-001
+  to: STEP-002
+- from: STEP-002
+  to: STEP-003
+- from: STEP-003
+  to: STEP-004
+- from: STEP-004
+  to: STEP-005
+- from: STEP-005
+  to: STEP-006
+- from: STEP-006
+  to: STEP-007
+- from: STEP-003
+  to: STEP-007
+- from: STEP-007
+  to: STEP-008
+- from: STEP-008
+  to: STEP-009
+- from: STEP-007
+  to: STEP-010
+- from: STEP-008
+  to: STEP-011
+- from: STEP-005
+  to: STEP-012
+- from: STEP-007
+  to: STEP-013
+- from: STEP-009
+  to: STEP-014
+- from: STEP-010
+  to: STEP-014
+- from: STEP-011
+  to: STEP-014
+- from: STEP-012
+  to: STEP-014
+- from: STEP-013
+  to: STEP-014
+parallel_groups:
+- - STEP-009
+  - STEP-010
+  - STEP-011
+  - STEP-012
+  - STEP-013

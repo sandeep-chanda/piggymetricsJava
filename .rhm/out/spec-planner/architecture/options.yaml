@@ -1,0 +1,10 @@
+options:
+- id: O-1
+  summary: Micrometer in account-service
+  selected: true
+- id: O-2
+  summary: Custom latency buffer
+  selected: false
+- id: O-3
+  summary: Hystrix dashboard only
+  selected: false

@@ -1,0 +1,6 @@
+provider: github
+auth_ref: HM_HARNESS_SCM_TOKEN
+clone_user: x-access-token
+sibling_repos: []
+target: sandeep-chanda/piggymetricsJava
+branch: rhm/pack/spec-planner/c250a21f

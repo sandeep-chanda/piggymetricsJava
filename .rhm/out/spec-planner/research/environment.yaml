@@ -1,0 +1,29 @@
+stack:
+  build: Maven multi-module
+  language: Java
+  java_version: '1.8'
+  framework: Spring Boot 2.0.3.RELEASE
+  cloud: Spring Cloud Finchley.RELEASE
+  test_command: mvn test
+  evidence:
+  - pom.xml properties java.version 1.8
+  - '.travis.yml jdk: oraclejdk8'
+modules:
+- config
+- monitoring
+- registry
+- gateway
+- auth-service
+- account-service
+- statistics-service
+- notification-service
+- turbine-stream-service
+runtime_patterns:
+- Eureka
+- Feign
+- Zuul
+- Spring Security OAuth
+- Hystrix
+- Spring Cloud Config
+- Turbine
+pass: true
