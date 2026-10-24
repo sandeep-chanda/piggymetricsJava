@@ -1,7 +1,7 @@
 {
   "source_plan": "/agent/piggymetricsJava/.rhm/out/spec-planner/final/_cursor.plan.md",
   "dest": "/agent/piggymetricsJava/.rhm/out/spec-planner/final/PLAYBOOK.md",
-  "imported_at_unix": 1792822123.2422495,
+  "imported_at_unix": 1792822143.2105205,
   "bytes": 47473,
   "importer": "scripts/import-cursor-plan.py"
 }
