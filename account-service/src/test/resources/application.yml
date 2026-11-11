@@ -1,5 +1,6 @@
-spring:
-  data:
-    mongodb:
-      database: piggymetrics
-      port: 0
+spring: {data: {mongodb: {database: piggymetrics, port: 0}}, cloud: {bus: {enabled: false}}, autoconfigure: {exclude: org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration}}
+auth-service: {url: 'http://127.0.0.1:9'}
+statistics-service: {url: 'http://127.0.0.1:9'}
+security: {oauth2: {client: {clientId: account-service, clientSecret: test, accessTokenUri: 'http://127.0.0.1:9/uaa/oauth/token', grant-type: client_credentials, scope: server}, resource: {user-info-uri: 'http://127.0.0.1:9/uaa/users/current'}}}
+feign: {hystrix: {enabled: true}}
+hystrix: {command: {default: {execution: {isolation: {thread: {timeoutInMilliseconds: 2000}}}}}}
