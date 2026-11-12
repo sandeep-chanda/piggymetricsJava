@@ -1,0 +1,7 @@
+spring: {application: {name: account-service}, data: {mongodb: {host: '${MONGODB_HOST:account-mongodb}', username: '${MONGODB_USERNAME:user}', password: '${MONGODB_PASSWORD}', database: piggymetrics, port: '${MONGODB_PORT:27017}'}}, rabbitmq: {host: '${RABBITMQ_HOST:rabbitmq}'}}
+security: {oauth2: {client: {clientId: account-service, clientSecret: '${ACCOUNT_SERVICE_PASSWORD}', accessTokenUri: '${AUTH_SERVICE_TOKEN_URI:http://auth-service:5000/uaa/oauth/token}', grant-type: client_credentials, scope: server}, resource: {user-info-uri: '${AUTH_SERVICE_USER_INFO_URI:http://auth-service:5000/uaa/users/current}'}}}
+server: {servlet: {context-path: /accounts}, port: 6000}
+auth-service: {url: '${AUTH_SERVICE_URL:http://auth-service:5000}'}
+statistics-service: {url: '${STATISTICS_SERVICE_URL:http://statistics-service:7000}'}
+feign: {hystrix: {enabled: true}}
+hystrix: {command: {default: {execution: {isolation: {thread: {timeoutInMilliseconds: 10000}}}}}}
