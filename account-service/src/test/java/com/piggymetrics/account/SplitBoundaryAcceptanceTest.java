@@ -1,6 +1,8 @@
 package com.piggymetrics.account;
 
 import com.piggymetrics.account.client.AuthServiceClient;
+import com.piggymetrics.account.client.StatisticsServiceClient;
+import com.piggymetrics.account.client.StatisticsServiceClientFallback;
 import com.piggymetrics.account.controller.AccountController;
 import com.piggymetrics.account.domain.Account;
 import org.junit.Test;
@@ -119,5 +121,27 @@ public class SplitBoundaryAcceptanceTest {
 		assertTrue(Files.exists(client));
 		assertFalse(Files.exists(Paths.get("..").resolve("account-query-service")
 				.resolve("src/main/java/com/piggymetrics/account/client/AuthServiceClient.java")));
+	}
+
+	@Test
+	public void shouldKeepStatisticsServiceEdgeWithC3UpdatePath() throws Exception {
+		FeignClient feign = StatisticsServiceClient.class.getAnnotation(FeignClient.class);
+		assertNotNull(feign);
+		assertEquals("statistics-service", feign.name());
+		assertEquals("${statistics-service.url}", feign.url());
+		assertEquals(StatisticsServiceClientFallback.class, feign.fallback());
+
+		Method updateStatistics = StatisticsServiceClient.class.getMethod(
+				"updateStatistics", String.class, Account.class);
+		RequestMapping mapping = updateStatistics.getAnnotation(RequestMapping.class);
+		assertNotNull(mapping);
+		assertEquals(RequestMethod.PUT, mapping.method()[0]);
+		assertEquals("/statistics/{accountName}", mapping.value()[0]);
+
+		Path client = Paths.get(
+				"src/main/java/com/piggymetrics/account/client/StatisticsServiceClient.java");
+		assertTrue(Files.exists(client));
+		assertTrue(Files.exists(Paths.get(
+				"src/main/java/com/piggymetrics/account/client/StatisticsServiceClientFallback.java")));
 	}
 }
