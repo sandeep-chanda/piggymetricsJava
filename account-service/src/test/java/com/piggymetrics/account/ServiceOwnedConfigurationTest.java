@@ -15,12 +15,13 @@ import java.nio.file.Paths;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 /**
- * P2.T1–P2.T2: account-service retains local identity without config-server
- * block and without spring-cloud-starter-config on the classpath.
+ * P2 acceptance: service-owned settings replace shared config-server content
+ * for identity and Feign URL properties (AUTH_SERVICE_URL / STATISTICS_SERVICE_URL).
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -31,6 +32,12 @@ public class ServiceOwnedConfigurationTest {
 
 	@Value("${spring.application.name}")
 	private String applicationName;
+
+	@Value("${auth-service.url}")
+	private String authServiceUrl;
+
+	@Value("${statistics-service.url}")
+	private String statisticsServiceUrl;
 
 	@Test
 	public void shouldRetainApplicationIdentityWithoutConfigServerBlock() throws Exception {
@@ -66,5 +73,24 @@ public class ServiceOwnedConfigurationTest {
 				pomContent.contains("spring-cloud-starter-openfeign"));
 		assertTrue("Hystrix starter must remain",
 				pomContent.contains("spring-cloud-starter-netflix-hystrix"));
+	}
+
+	@Test
+	public void shouldResolveAuthAndStatisticsUrlsFromServiceOwnedSettings() throws Exception {
+		assertNotNull(authServiceUrl);
+		assertNotNull(statisticsServiceUrl);
+		assertFalse(authServiceUrl.trim().isEmpty());
+		assertFalse(statisticsServiceUrl.trim().isEmpty());
+		assertTrue(authServiceUrl.startsWith("http://"));
+		assertTrue(statisticsServiceUrl.startsWith("http://"));
+
+		Path applicationYml = Paths.get("src/main/resources/application.yml");
+		assertTrue("service-owned application.yml must exist", Files.exists(applicationYml));
+		String content = new String(Files.readAllBytes(applicationYml), StandardCharsets.UTF_8);
+		assertTrue(content.contains("auth-service"));
+		assertTrue(content.contains("statistics-service"));
+		assertTrue(content.contains("AUTH_SERVICE_URL"));
+		assertTrue(content.contains("STATISTICS_SERVICE_URL"));
+		assertTrue(content.contains("account-service"));
 	}
 }
