@@ -213,4 +213,16 @@ public class SplitBoundaryAcceptanceTest {
 		assertFalse(Files.exists(Paths.get("..").resolve("account-query-service").resolve(
 				"src/test/java/com/piggymetrics/account/controller/AccountControllerTest.java")));
 	}
+
+	@Test
+	public void shouldKeepAccountRepositoryTestWithCoveredCode() throws Exception {
+		Path source = Paths.get(
+				"src/test/java/com/piggymetrics/account/repository/AccountRepositoryTest.java");
+		assertTrue(Files.exists(source));
+		Class<?> loaded = Class.forName(
+				"com.piggymetrics.account.repository.AccountRepositoryTest");
+		assertEquals("com.piggymetrics.account.repository.AccountRepositoryTest", loaded.getName());
+		assertFalse(Files.exists(Paths.get("..").resolve("account-query-service").resolve(
+				"src/test/java/com/piggymetrics/account/repository/AccountRepositoryTest.java")));
+	}
 }
