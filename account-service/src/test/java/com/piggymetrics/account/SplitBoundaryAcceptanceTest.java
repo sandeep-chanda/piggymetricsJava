@@ -1,8 +1,10 @@
 package com.piggymetrics.account;
 
+import com.piggymetrics.account.client.AuthServiceClient;
 import com.piggymetrics.account.controller.AccountController;
 import com.piggymetrics.account.domain.Account;
 import org.junit.Test;
+import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -96,5 +98,26 @@ public class SplitBoundaryAcceptanceTest {
 				pomContent.contains("spring-cloud-starter-openfeign"));
 		assertTrue("Hystrix remains for statistics fallback",
 				pomContent.contains("spring-cloud-starter-netflix-hystrix"));
+	}
+
+	@Test
+	public void shouldKeepAuthServiceEdgeWithC4CreatePath() throws Exception {
+		FeignClient feign = AuthServiceClient.class.getAnnotation(FeignClient.class);
+		assertNotNull(feign);
+		assertEquals("auth-service", feign.name());
+		assertEquals("${auth-service.url}", feign.url());
+
+		Method createUser = AuthServiceClient.class.getMethod("createUser",
+				com.piggymetrics.account.domain.User.class);
+		RequestMapping mapping = createUser.getAnnotation(RequestMapping.class);
+		assertNotNull(mapping);
+		assertEquals(RequestMethod.POST, mapping.method()[0]);
+		assertEquals("/uaa/users", mapping.value()[0]);
+
+		Path client = Paths.get(
+				"src/main/java/com/piggymetrics/account/client/AuthServiceClient.java");
+		assertTrue(Files.exists(client));
+		assertFalse(Files.exists(Paths.get("..").resolve("account-query-service")
+				.resolve("src/main/java/com/piggymetrics/account/client/AuthServiceClient.java")));
 	}
 }
