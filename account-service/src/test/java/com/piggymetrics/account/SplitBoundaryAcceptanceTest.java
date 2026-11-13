@@ -78,4 +78,23 @@ public class SplitBoundaryAcceptanceTest {
 				Files.exists(Paths.get("..").resolve("account-query-service")
 						.resolve("src/main/java/com/piggymetrics/account/domain/Account.java")));
 	}
+
+	@Test
+	public void shouldKeepAccountServicePomAsFutureServiceShapeTemplate() throws Exception {
+		Path queryService = Paths.get("..").resolve("account-query-service");
+		assertFalse("Do not introduce account-query-service in this scoped delivery",
+				Files.exists(queryService));
+
+		Path pom = Paths.get("pom.xml");
+		assertTrue(Files.exists(pom));
+		String pomContent = new String(Files.readAllBytes(pom), StandardCharsets.UTF_8);
+		assertTrue("account-service remains jar packaging shape template",
+				pomContent.contains("<packaging>jar</packaging>"));
+		assertTrue(pomContent.contains("<artifactId>account-service</artifactId>"));
+		assertTrue(pomContent.contains("<finalName>account-service</finalName>"));
+		assertTrue("OpenFeign remains for retained edges",
+				pomContent.contains("spring-cloud-starter-openfeign"));
+		assertTrue("Hystrix remains for statistics fallback",
+				pomContent.contains("spring-cloud-starter-netflix-hystrix"));
+	}
 }
