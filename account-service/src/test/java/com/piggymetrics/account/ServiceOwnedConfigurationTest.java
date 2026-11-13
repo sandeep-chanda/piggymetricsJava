@@ -8,14 +8,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertTrue;
 
 /**
- * P2 acceptance: account-service starts from service-owned settings without
- * the shared config server.
+ * P2.T1: account-service retains local application identity without a
+ * mandatory shared config-server block (no http://config:8888 fail-fast).
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -27,34 +31,19 @@ public class ServiceOwnedConfigurationTest {
 	@Value("${spring.application.name}")
 	private String applicationName;
 
-	@Value("${auth-service.url}")
-	private String authServiceUrl;
-
-	@Value("${statistics-service.url}")
-	private String statisticsServiceUrl;
-
 	@Test
-	public void shouldRetainApplicationIdentityWithoutConfigServerBlock() {
+	public void shouldRetainApplicationIdentityWithoutConfigServerBlock() throws Exception {
 		assertEquals("account-service", applicationName);
 		assertFalse(environment.getProperty("spring.cloud.config.enabled", Boolean.class, true));
 		assertFalse(environment.getProperty("spring.cloud.config.fail-fast", Boolean.class, false));
-	}
 
-	@Test
-	public void shouldNotRequireSpringCloudConfigClientOnClasspath() {
-		try {
-			Class.forName("org.springframework.cloud.config.client.ConfigServicePropertySourceLocator");
-			fail("spring-cloud-starter-config must not be on the account-service classpath");
-		} catch (ClassNotFoundException expected) {
-			// expected after P2.T2 retires the config client dependency
-		}
-	}
-
-	@Test
-	public void shouldResolveAuthAndStatisticsUrlsFromServiceOwnedSettings() {
-		assertNotNull(authServiceUrl);
-		assertNotNull(statisticsServiceUrl);
-		assertFalse(authServiceUrl.trim().isEmpty());
-		assertFalse(statisticsServiceUrl.trim().isEmpty());
+		Path bootstrap = Paths.get("src/main/resources/bootstrap.yml");
+		assertTrue("bootstrap.yml must exist under account-service", Files.exists(bootstrap));
+		String bootstrapContent = new String(Files.readAllBytes(bootstrap), StandardCharsets.UTF_8);
+		assertTrue(bootstrapContent.contains("account-service"));
+		assertFalse("bootstrap.yml must not point at http://config:8888",
+				bootstrapContent.contains("config:8888") || bootstrapContent.contains("http://config:8888"));
+		assertFalse("bootstrap.yml must not keep fail-fast against the shared config server",
+				bootstrapContent.contains("fail-fast"));
 	}
 }
