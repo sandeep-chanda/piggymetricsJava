@@ -21,6 +21,8 @@ Piggy Metrics is decomposed into three core microservices. All of them are indep
 #### Account service
 Contains general input logic and validation: incomes/expenses items, savings and account settings.
 
+Account-service no longer registers with Eureka or loads startup settings from the shared Config service. It owns its settings in `account-service/src/main/resources/application.yml` and resolves auth-service and statistics-service through URL properties (`AUTH_SERVICE_URL`, `STATISTICS_SERVICE_URL`). Feign, OAuth2 client support, Hystrix, and method security remain. See [docs/api/account-service.md](docs/api/account-service.md) and [docs/adr](docs/adr).
+
 Method	| Path	| Description	| User authenticated	| Available from UI
 ------------- | ------------------------- | ------------- |:-------------:|:----------------:|
 GET	| /accounts/{account}	| Get specified account data	|  | 	
@@ -87,6 +89,7 @@ You could also use Repository [webhooks to automate this process](http://cloud.s
 ##### Notes
 - `@RefreshScope` doesn't work with `@Configuration` classes and doesn't ignores `@Scheduled` methods
 - `fail-fast` property means that Spring Boot application will fail startup immediately, if it cannot connect to the Config Service.
+- **account-service exception:** account-service has retired the mandatory Config client edge. Its `bootstrap.yml` keeps only the local application name; remaining settings live in service-owned `application.yml` (overridable by environment). Other modules in this repository may still use Config as described above.
 
 ### Auth service
 Authorization responsibilities are extracted to a separate server, which grants [OAuth2 tokens](https://tools.ietf.org/html/rfc6749) for the backend resource services. Auth Server is used for user authorization as well as for secure machine-to-machine communication inside the perimeter.
@@ -143,6 +146,8 @@ This service will be registered with the Eureka Server and provided with metadat
 
 Also, Eureka provides a simple interface where you can track running services and a number of available instances: `http://localhost:8761`
 
+**account-service exception:** account-service no longer enables `@EnableDiscoveryClient` and no longer depends on `spring-cloud-starter-netflix-eureka-client`. It reaches auth-service and statistics-service through Feign `url` properties instead of Eureka name resolution. Other services in the composed stack may still register with Eureka as above.
+
 ### Load balancer, Circuit breaker and Http client
 
 #### Ribbon
@@ -158,10 +163,10 @@ Moreover, Hystrix generates metrics on execution outcomes and latency for each c
 #### Feign
 Feign is a declarative Http client which seamlessly integrates with Ribbon and Hystrix. Actually, a single `spring-cloud-starter-feign` dependency and `@EnableFeignClients` annotation gives us a full set of tools, including Load balancer, Circuit Breaker and Http client with reasonable default configuration.
 
-Here is an example from the Account Service:
+Here is an example from the Account Service (after retiring Eureka for this module):
 
 ``` java
-@FeignClient(name = "statistics-service")
+@FeignClient(name = "statistics-service", url = "${statistics-service.url}", fallback = StatisticsServiceClientFallback.class)
 public interface StatisticsServiceClient {
 
 	@RequestMapping(method = RequestMethod.PUT, value = "/statistics/{accountName}", consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)
@@ -172,7 +177,7 @@ public interface StatisticsServiceClient {
 
 - Everything you need is just an interface
 - You can share `@RequestMapping` part between Spring MVC controller and Feign methods
-- Above example specifies just a desired service id - `statistics-service`, thanks to auto-discovery through Eureka
+- Account-service binds a concrete base URL (`statistics-service.url` / `AUTH_SERVICE_URL` and `STATISTICS_SERVICE_URL` env overrides) instead of resolving the peer through Eureka; Hystrix fallback remains on the statistics edge
 
 ### Monitor dashboard
 
@@ -240,6 +245,8 @@ Just copy `docker-compose.yml` and hit `docker-compose up`
 If you'd like to build images yourself, you have to clone the repository and build artifacts using maven. After that, run `docker-compose -f docker-compose.yml -f docker-compose.dev.yml up`
 
 `docker-compose.dev.yml` inherits `docker-compose.yml` with additional possibility to build images locally and expose all containers ports for convenient development.
+
+Account-service can also be packaged on its own: after `mvn -pl account-service -am package`, build `account-service/Dockerfile` (Java 17 JRE image launching `account-service.jar`). Supply MongoDB, OAuth client secret, `AUTH_SERVICE_URL`, and `STATISTICS_SERVICE_URL` (and related token/user-info URIs as needed); the image does not require Eureka or the Config server to start.
 
 If you'd like to start applications in Intellij Idea you need to either use [EnvFile plugin](https://plugins.jetbrains.com/plugin/7861-envfile) or manually export environment variables listed in `.env` file (make sure they were exported: `printenv`)
 
