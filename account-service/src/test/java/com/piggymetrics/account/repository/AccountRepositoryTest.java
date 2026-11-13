@@ -17,6 +17,10 @@ import java.util.Date;
 
 import static org.junit.Assert.assertEquals;
 
+/**
+ * P2.T7 parity: AccountRepositoryTest stays green on account-service with
+ * service-owned settings; accounts collection ownership unchanged.
+ */
 @RunWith(SpringRunner.class)
 @DataMongoTest
 public class AccountRepositoryTest {
