@@ -17,10 +17,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.*;
 import static org.mockito.MockitoAnnotations.initMocks;
 
-/**
- * P2.T7 parity: AccountServiceTest stays green on account-service with
- * service-owned settings (auth create + statistics update call counts).
- */
 public class AccountServiceTest {
 
 	@InjectMocks
@@ -38,13 +34,6 @@ public class AccountServiceTest {
 	@Before
 	public void setup() {
 		initMocks(this);
-	}
-
-	@Test
-	public void shouldRetainAuthAndStatisticsClientsForParity() {
-		assertNotNull(authClient);
-		assertNotNull(statisticsClient);
-		assertNotNull(repository);
 	}
 
 	@Test
