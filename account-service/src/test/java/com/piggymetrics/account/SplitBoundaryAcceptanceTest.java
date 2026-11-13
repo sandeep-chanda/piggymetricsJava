@@ -196,4 +196,21 @@ public class SplitBoundaryAcceptanceTest {
 		assertFalse(Files.exists(Paths.get("..").resolve("account-query-service").resolve(
 				"src/test/java/com/piggymetrics/account/client/StatisticsServiceClientFallbackTest.java")));
 	}
+
+	@Test
+	public void shouldKeepAccountControllerTestWithCoveredCode() throws Exception {
+		Path source = Paths.get(
+				"src/test/java/com/piggymetrics/account/controller/AccountControllerTest.java");
+		assertTrue(Files.exists(source));
+		String content = new String(Files.readAllBytes(source), StandardCharsets.UTF_8);
+		assertTrue(content.contains("shouldGetAccountByName"));
+		assertTrue(content.contains("shouldGetCurrentAccount"));
+		assertTrue(content.contains("shouldSaveCurrentAccount"));
+		assertTrue(content.contains("shouldRegisterNewAccount"));
+		Class<?> loaded = Class.forName(
+				"com.piggymetrics.account.controller.AccountControllerTest");
+		assertEquals("com.piggymetrics.account.controller.AccountControllerTest", loaded.getName());
+		assertFalse(Files.exists(Paths.get("..").resolve("account-query-service").resolve(
+				"src/test/java/com/piggymetrics/account/controller/AccountControllerTest.java")));
+	}
 }
