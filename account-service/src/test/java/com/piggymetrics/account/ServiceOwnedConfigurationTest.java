@@ -10,6 +10,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
 /**
@@ -26,6 +27,12 @@ public class ServiceOwnedConfigurationTest {
 	@Value("${spring.application.name}")
 	private String applicationName;
 
+	@Value("${auth-service.url}")
+	private String authServiceUrl;
+
+	@Value("${statistics-service.url}")
+	private String statisticsServiceUrl;
+
 	@Test
 	public void shouldRetainApplicationIdentityWithoutConfigServerBlock() {
 		assertEquals("account-service", applicationName);
@@ -41,5 +48,13 @@ public class ServiceOwnedConfigurationTest {
 		} catch (ClassNotFoundException expected) {
 			// expected after P2.T2 retires the config client dependency
 		}
+	}
+
+	@Test
+	public void shouldResolveAuthAndStatisticsUrlsFromServiceOwnedSettings() {
+		assertNotNull(authServiceUrl);
+		assertNotNull(statisticsServiceUrl);
+		assertFalse(authServiceUrl.trim().isEmpty());
+		assertFalse(statisticsServiceUrl.trim().isEmpty());
 	}
 }
