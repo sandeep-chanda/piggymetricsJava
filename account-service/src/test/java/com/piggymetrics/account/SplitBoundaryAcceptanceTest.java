@@ -1,11 +1,14 @@
 package com.piggymetrics.account;
 
 import com.piggymetrics.account.controller.AccountController;
+import com.piggymetrics.account.domain.Account;
 import org.junit.Test;
+import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -13,13 +16,14 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /**
- * P4.T1: Chosen split boundary — C2 GET /current is the future
- * account-query-service endpoint; account-service retains C1, C3, C4
- * (and still hosts C2 until the out-of-scope cutover).
+ * P4 split-boundary acceptance: record C2 as future move; keep C1/C3/C4,
+ * accounts ownership, Feign edges, and retired config on account-service.
  */
 public class SplitBoundaryAcceptanceTest {
 
@@ -56,5 +60,22 @@ public class SplitBoundaryAcceptanceTest {
 		assertTrue(Files.exists(controller));
 		assertFalse("account-query-service must not exist in this scoped delivery",
 				Files.exists(Paths.get("..").resolve("account-query-service")));
+	}
+
+	@Test
+	public void shouldKeepAccountsCollectionOwnedByAccountService() throws Exception {
+		Document document = Account.class.getAnnotation(Document.class);
+		assertNotNull("Account must remain a Mongo @Document", document);
+		assertEquals("accounts", document.collection());
+		assertEquals("com.piggymetrics.account.domain.Account", Account.class.getName());
+
+		Path accountSource = Paths.get(
+				"src/main/java/com/piggymetrics/account/domain/Account.java");
+		assertTrue(Files.exists(accountSource));
+		String content = new String(Files.readAllBytes(accountSource), StandardCharsets.UTF_8);
+		assertTrue(content.contains("@Document(collection = \"accounts\")"));
+		assertFalse("Account entity must not move to account-query-service",
+				Files.exists(Paths.get("..").resolve("account-query-service")
+						.resolve("src/main/java/com/piggymetrics/account/domain/Account.java")));
 	}
 }
