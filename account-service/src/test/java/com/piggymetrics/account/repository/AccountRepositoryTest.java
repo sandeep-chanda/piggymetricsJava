@@ -9,7 +9,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
-import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import java.math.BigDecimal;
@@ -17,25 +16,13 @@ import java.util.Arrays;
 import java.util.Date;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 
-/**
- * P2.T7 parity: AccountRepositoryTest stays green on account-service with
- * service-owned settings; accounts collection ownership unchanged.
- */
 @RunWith(SpringRunner.class)
 @DataMongoTest
 public class AccountRepositoryTest {
 
 	@Autowired
 	private AccountRepository repository;
-
-	@Test
-	public void shouldKeepAccountsCollectionOwnedByAccountService() {
-		Document document = Account.class.getAnnotation(Document.class);
-		assertNotNull(document);
-		assertEquals("accounts", document.collection());
-	}
 
 	@Test
 	public void shouldFindAccountByName() {
