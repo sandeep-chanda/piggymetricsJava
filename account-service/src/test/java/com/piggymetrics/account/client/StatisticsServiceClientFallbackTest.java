@@ -17,27 +17,27 @@ import static org.hamcrest.Matchers.containsString;
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest(properties = {
-        "feign.hystrix.enabled=true"
+  "feign.hystrix.enabled=true"
 })
 public class StatisticsServiceClientFallbackTest {
-    @Autowired
-    private StatisticsServiceClient statisticsServiceClient;
+  @Autowired
+  private StatisticsServiceClient statisticsServiceClient;
 
-    @Rule
-    public final OutputCapture outputCapture = new OutputCapture();
+  @Rule
+  public final OutputCapture outputCapture = new OutputCapture();
 
-    @Before
-    public void setup() {
-        outputCapture.reset();
-    }
+  @Before
+  public void setup() {
+  outputCapture.reset();
+  }
 
-    @Test
-    public void testUpdateStatisticsWithFailFallback(){
-        statisticsServiceClient.updateStatistics("test", new Account());
+  @Test
+  public void testUpdateStatisticsWithFailFallback(){
+  statisticsServiceClient.updateStatistics("test", new Account());
 
-        outputCapture.expect(containsString("Error during update statistics for account: test"));
+  outputCapture.expect(containsString("Error during update statistics for account: test"));
 
-    }
+  }
 
 }
 
