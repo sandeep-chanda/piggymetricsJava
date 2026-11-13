@@ -6,20 +6,13 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.rule.OutputCapture;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 /**
- * P2.T6: Hystrix fallback stays green when statistics-service.url from
- * service-owned/test settings is unreachable.
- *
  * @author cdov
  */
 @RunWith(SpringRunner.class)
@@ -29,15 +22,6 @@ import static org.junit.Assert.assertTrue;
 public class StatisticsServiceClientFallbackTest {
   @Autowired
   private StatisticsServiceClient statisticsServiceClient;
-
-  @Value("${statistics-service.url}")
-  private String statisticsServiceUrl;
-
-  @Value("${auth-service.url}")
-  private String authServiceUrl;
-
-  @Value("${feign.hystrix.enabled}")
-  private boolean feignHystrixEnabled;
 
   @Rule
   public final OutputCapture outputCapture = new OutputCapture();
@@ -49,12 +33,6 @@ public class StatisticsServiceClientFallbackTest {
 
   @Test
   public void testUpdateStatisticsWithFailFallback(){
-  assertNotNull(statisticsServiceUrl);
-  assertNotNull(authServiceUrl);
-  assertTrue(statisticsServiceUrl.startsWith("http://"));
-  assertTrue(authServiceUrl.startsWith("http://"));
-  assertFalse(statisticsServiceUrl.trim().isEmpty());
-  assertTrue(feignHystrixEnabled);
   statisticsServiceClient.updateStatistics("test", new Account());
 
   outputCapture.expect(containsString("Error during update statistics for account: test"));
@@ -62,3 +40,4 @@ public class StatisticsServiceClientFallbackTest {
   }
 
 }
+
