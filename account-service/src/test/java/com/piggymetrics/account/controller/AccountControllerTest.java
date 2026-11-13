@@ -15,10 +15,17 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -26,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * P2.T7 / P2.T8 parity: AccountControllerTest covers C1–C4 on account-service
+ * P2.T8 parity: AccountControllerTest covers C1–C4 on account-service
  * with existing validation and response behavior under service-owned settings.
  */
 @RunWith(SpringRunner.class)
@@ -47,6 +54,26 @@ public class AccountControllerTest {
 	public void setup() {
 		initMocks(this);
 		this.mockMvc = MockMvcBuilders.standaloneSetup(accountController).build();
+	}
+
+	@Test
+	public void shouldMapContractsC1ThroughC4() throws Exception {
+		Set<String> mappings = new HashSet<String>();
+		for (Method method : AccountController.class.getDeclaredMethods()) {
+			RequestMapping mapping = method.getAnnotation(RequestMapping.class);
+			if (mapping == null) {
+				continue;
+			}
+			String path = mapping.path().length > 0 ? mapping.path()[0] : "";
+			RequestMethod http = mapping.method().length > 0 ? mapping.method()[0] : null;
+			mappings.add(http + " " + path);
+		}
+		assertTrue(mappings.containsAll(Arrays.asList(
+				"GET /{name}",
+				"GET /current",
+				"PUT /current",
+				"POST /"
+		)));
 	}
 
 	@Test
