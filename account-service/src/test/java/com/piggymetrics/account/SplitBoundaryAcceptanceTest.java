@@ -170,4 +170,17 @@ public class SplitBoundaryAcceptanceTest {
 		assertFalse("config client starter must stay retired",
 				pomContent.contains("spring-cloud-starter-config"));
 	}
+
+	@Test
+	public void shouldKeepAccountServiceApplicationTestsWithCoveredCode() throws Exception {
+		Path source = Paths.get(
+				"src/test/java/com/piggymetrics/account/AccountServiceApplicationTests.java");
+		assertTrue(Files.exists(source));
+		Class<?> loaded = Class.forName(
+				"com.piggymetrics.account.AccountServiceApplicationTests");
+		assertEquals("com.piggymetrics.account.AccountServiceApplicationTests", loaded.getName());
+		assertFalse("Do not move AccountServiceApplicationTests to account-query-service",
+				Files.exists(Paths.get("..").resolve("account-query-service").resolve(
+						"src/test/java/com/piggymetrics/account/AccountServiceApplicationTests.java")));
+	}
 }
