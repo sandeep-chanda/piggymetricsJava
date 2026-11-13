@@ -10,10 +10,11 @@ import org.springframework.test.context.junit4.SpringRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
 
 /**
- * P2.T1: account-service retains local application identity without a
- * mandatory shared config-server block.
+ * P2 acceptance: account-service starts from service-owned settings without
+ * the shared config server.
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -30,5 +31,15 @@ public class ServiceOwnedConfigurationTest {
 		assertEquals("account-service", applicationName);
 		assertFalse(environment.getProperty("spring.cloud.config.enabled", Boolean.class, true));
 		assertFalse(environment.getProperty("spring.cloud.config.fail-fast", Boolean.class, false));
+	}
+
+	@Test
+	public void shouldNotRequireSpringCloudConfigClientOnClasspath() {
+		try {
+			Class.forName("org.springframework.cloud.config.client.ConfigServicePropertySourceLocator");
+			fail("spring-cloud-starter-config must not be on the account-service classpath");
+		} catch (ClassNotFoundException expected) {
+			// expected after P2.T2 retires the config client dependency
+		}
 	}
 }
