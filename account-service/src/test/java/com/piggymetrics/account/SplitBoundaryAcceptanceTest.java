@@ -144,4 +144,30 @@ public class SplitBoundaryAcceptanceTest {
 		assertTrue(Files.exists(Paths.get(
 				"src/main/java/com/piggymetrics/account/client/StatisticsServiceClientFallback.java")));
 	}
+
+	@Test
+	public void shouldKeepConfigEdgeRetiredWithServiceOwnedSettings() throws Exception {
+		Path bootstrap = Paths.get("src/main/resources/bootstrap.yml");
+		assertTrue(Files.exists(bootstrap));
+		String bootstrapContent = new String(Files.readAllBytes(bootstrap), StandardCharsets.UTF_8);
+		assertTrue(bootstrapContent.contains("account-service"));
+		assertFalse("bootstrap.yml must not point at http://config:8888",
+				bootstrapContent.contains("config:8888")
+						|| bootstrapContent.contains("http://config:8888"));
+		assertFalse("bootstrap.yml must not keep fail-fast",
+				bootstrapContent.contains("fail-fast"));
+		assertFalse("bootstrap.yml must not keep spring.cloud.config keys",
+				bootstrapContent.contains("spring.cloud.config")
+						|| (bootstrapContent.contains("cloud:")
+						&& bootstrapContent.contains("config:")));
+
+		Path applicationYml = Paths.get("src/main/resources/application.yml");
+		assertTrue("service-owned application.yml must serve remaining settings",
+				Files.exists(applicationYml));
+
+		Path pom = Paths.get("pom.xml");
+		String pomContent = new String(Files.readAllBytes(pom), StandardCharsets.UTF_8);
+		assertFalse("config client starter must stay retired",
+				pomContent.contains("spring-cloud-starter-config"));
+	}
 }
