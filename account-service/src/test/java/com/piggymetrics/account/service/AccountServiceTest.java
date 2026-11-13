@@ -41,6 +41,13 @@ public class AccountServiceTest {
 	}
 
 	@Test
+	public void shouldRetainAuthAndStatisticsClientsForParity() {
+		assertNotNull(authClient);
+		assertNotNull(statisticsClient);
+		assertNotNull(repository);
+	}
+
+	@Test
 	public void shouldFindByName() {
 
 		final Account account = new Account();
