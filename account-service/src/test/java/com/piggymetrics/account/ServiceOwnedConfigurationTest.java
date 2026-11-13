@@ -16,10 +16,11 @@ import java.nio.file.Paths;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
- * P2.T1: account-service retains local application identity without a
- * mandatory shared config-server block (no http://config:8888 fail-fast).
+ * P2.T1–P2.T2: account-service retains local identity without config-server
+ * block and without spring-cloud-starter-config on the classpath.
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -45,5 +46,25 @@ public class ServiceOwnedConfigurationTest {
 				bootstrapContent.contains("config:8888") || bootstrapContent.contains("http://config:8888"));
 		assertFalse("bootstrap.yml must not keep fail-fast against the shared config server",
 				bootstrapContent.contains("fail-fast"));
+	}
+
+	@Test
+	public void shouldNotRequireSpringCloudConfigClientOnClasspath() throws Exception {
+		try {
+			Class.forName("org.springframework.cloud.config.client.ConfigServicePropertySourceLocator");
+			fail("spring-cloud-starter-config must not be on the account-service classpath");
+		} catch (ClassNotFoundException expected) {
+			// expected after P2.T2 retires the config client dependency
+		}
+
+		Path pom = Paths.get("pom.xml");
+		assertTrue(Files.exists(pom));
+		String pomContent = new String(Files.readAllBytes(pom), StandardCharsets.UTF_8);
+		assertFalse("pom.xml must not declare spring-cloud-starter-config",
+				pomContent.contains("spring-cloud-starter-config"));
+		assertTrue("OpenFeign starter must remain",
+				pomContent.contains("spring-cloud-starter-openfeign"));
+		assertTrue("Hystrix starter must remain",
+				pomContent.contains("spring-cloud-starter-netflix-hystrix"));
 	}
 }
