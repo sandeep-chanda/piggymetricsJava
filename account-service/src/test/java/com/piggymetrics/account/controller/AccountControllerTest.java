@@ -25,6 +25,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * P2.T7 / P2.T8 parity: AccountControllerTest covers C1–C4 on account-service
+ * with existing validation and response behavior under service-owned settings.
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest
 public class AccountControllerTest {
@@ -47,6 +51,7 @@ public class AccountControllerTest {
 
 	@Test
 	public void shouldGetAccountByName() throws Exception {
+		// C1 GET /{name}
 
 		final Account account = new Account();
 		account.setName("test");
@@ -60,6 +65,7 @@ public class AccountControllerTest {
 
 	@Test
 	public void shouldGetCurrentAccount() throws Exception {
+		// C2 GET /current
 
 		final Account account = new Account();
 		account.setName("test");
@@ -73,6 +79,7 @@ public class AccountControllerTest {
 
 	@Test
 	public void shouldSaveCurrentAccount() throws Exception {
+		// C3 PUT /current
 
 		Saving saving = new Saving();
 		saving.setAmount(new BigDecimal(1500));
@@ -123,6 +130,7 @@ public class AccountControllerTest {
 
 	@Test
 	public void shouldRegisterNewAccount() throws Exception {
+		// C4 POST /
 
 		final User user = new User();
 		user.setUsername("test");
