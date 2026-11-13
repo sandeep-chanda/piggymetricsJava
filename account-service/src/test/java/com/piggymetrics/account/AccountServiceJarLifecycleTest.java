@@ -7,11 +7,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
  * P2.T4: spring-boot-maven-plugin keeps finalName account-service so package
- * writes account-service.jar only after the test phase.
+ * writes account-service.jar only after the default Maven test phase.
  */
 public class AccountServiceJarLifecycleTest {
 
@@ -22,5 +23,8 @@ public class AccountServiceJarLifecycleTest {
 		String content = new String(Files.readAllBytes(pom), StandardCharsets.UTF_8);
 		assertTrue(content.contains("<finalName>account-service</finalName>"));
 		assertTrue(content.contains("spring-boot-maven-plugin"));
+		assertFalse("package must not skip tests via skipTests in pom",
+				content.contains("<skipTests>true</skipTests>")
+						|| content.contains("<maven.test.skip>true</maven.test.skip>"));
 	}
 }
